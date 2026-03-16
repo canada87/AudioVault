@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import db, { sqlite } from '../db';
 import { dailyLimits } from '../db/schema';
 
