@@ -2,15 +2,13 @@ version: '3.9'
 
 services:
   backend:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
+    image: audiovault:latest
     container_name: audiovault-backend
     restart: unless-stopped
     ports:
       - '3000:3000'
     volumes:
-      - ./data:/app/data
+      - audiovault-data:/app/data
       - ${AUDIO_DIR:-/mnt/recordings}:/recordings:ro
     environment:
       - NODE_ENV=production
@@ -33,3 +31,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+
+volumes:
+  audiovault-data:
