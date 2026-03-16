@@ -5,7 +5,7 @@ import { eq, and, gte, lte, inArray, like, desc, asc, sql } from 'drizzle-orm';
 import db, { sqlite } from '../db';
 import { records, tags, recordTags } from '../db/schema';
 import { deleteAudioFile, deleteRecord, renameAudioFile } from '../services/file';
-import { processTranscription } from '../scheduler/transcription';
+import { enqueueTranscription } from '../scheduler/transcription';
 import { processSummary } from '../scheduler/summarizer';
 import { getRemainingToday } from '../services/limits';
 import { getTranscriptionProgress } from '../services/stt';
@@ -290,12 +290,10 @@ export async function registerRecordRoutes(app: FastifyInstance): Promise<void> 
         return reply.status(409).send({ error: 'Record is already being processed', statusCode: 409 });
       }
 
-      // Run async
-      processTranscription(id, record.file_path, 'manual', app.log).catch((err: unknown) => {
-        app.log.error({ err, recordId: id }, 'Manual transcription failed');
-      });
+      // Enqueue (processed sequentially — Parakeet is single-job)
+      enqueueTranscription(id, record.file_path, 'manual', app.log);
 
-      return reply.status(202).send({ message: 'Transcription started' });
+      return reply.status(202).send({ message: 'Transcription queued' });
     },
   );
 

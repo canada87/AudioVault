@@ -5,7 +5,68 @@ import { records, processingLog } from '../db/schema';
 import { transcribeAudio } from '../services/stt';
 import type { FastifyBaseLogger } from 'fastify';
 
+// ── Transcription queue (Parakeet is single-job) ──────────────────────
+interface QueueItem {
+  recordId: number;
+  filePath: string;
+  triggeredBy: 'scheduler' | 'manual';
+}
+
+const queue: QueueItem[] = [];
+let processing = false;
+let _logger: FastifyBaseLogger | null = null;
+
+/**
+ * Enqueue a transcription request.
+ * If nothing is currently processing, it starts immediately.
+ * Otherwise it waits in line.
+ */
+export function enqueueTranscription(
+  recordId: number,
+  filePath: string,
+  triggeredBy: 'scheduler' | 'manual',
+  logger: FastifyBaseLogger,
+): void {
+  _logger = logger;
+
+  // Don't enqueue duplicates
+  if (queue.some((item) => item.recordId === recordId)) {
+    logger.info({ recordId }, 'Transcription already queued, skipping');
+    return;
+  }
+
+  queue.push({ recordId, filePath, triggeredBy });
+  logger.info({ recordId, queueLength: queue.length }, 'Transcription enqueued');
+
+  // Kick off the drain loop if not already running
+  if (!processing) {
+    drainQueue().catch((err: unknown) => {
+      logger.error({ err }, 'Transcription queue drain failed');
+    });
+  }
+}
+
+/** Returns the current queue length (excluding the item being processed). */
+export function getQueueLength(): number {
+  return queue.length;
+}
+
+async function drainQueue(): Promise<void> {
+  if (processing) return;
+  processing = true;
+
+  while (queue.length > 0) {
+    const item = queue.shift()!;
+    await processTranscription(item.recordId, item.filePath, item.triggeredBy, _logger!);
+  }
+
+  processing = false;
+}
+
+// ── Cron scheduler ────────────────────────────────────────────────────
+
 export function startTranscriptionScheduler(logger: FastifyBaseLogger): void {
+  _logger = logger;
   const cronExpression = process.env['TRANSCRIPTION_CRON'] ?? '0 4 * * *';
 
   if (!cron.validate(cronExpression)) {
@@ -39,11 +100,12 @@ export async function runTranscriptionBatch(logger: FastifyBaseLogger): Promise<
 
   logger.info({ count: eligible.length }, 'Starting transcription batch');
 
-  // Process sequentially
   for (const record of eligible) {
-    await processTranscription(record.id, record.file_path, 'scheduler', logger);
+    enqueueTranscription(record.id, record.file_path, 'scheduler', logger);
   }
 }
+
+// ── Core processing (called only from the queue) ──────────────────────
 
 export async function processTranscription(
   recordId: number,
