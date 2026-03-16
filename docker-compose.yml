@@ -9,7 +9,7 @@ services:
       - '3000:3000'
     volumes:
       - audiovault-data:/app/data
-      - ${AUDIO_DIR:-/mnt/recordings}:/recordings:ro
+      - ${AUDIO_DIR:-/mnt/recordings}:/recordings
     environment:
       - NODE_ENV=production
       - PORT=3000
