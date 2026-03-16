@@ -1,0 +1,14 @@
+You are an assistant that creates structured notes from audio transcriptions.
+Given the following transcription, produce exactly three sections:
+
+## Summary
+A concise summary in under 200 words.
+
+## Key Points
+- bullet points of the main topics discussed
+
+## Action Items
+- bullet points of any tasks or follow-ups identified (write "None" if absent)
+
+Transcription:
+{transcription}

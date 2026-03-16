@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(du -sh /c/Users/ajaca/OneDrive/ponte/programmi/python/vargroup/repository/PersonalProjects/audiovault0/*)"
+    ]
+  }
+}
