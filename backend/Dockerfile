@@ -32,16 +32,16 @@ RUN apk add --no-cache ffmpeg
 
 # Install build tools for native modules, then install prod deps
 RUN apk add --no-cache python3 make g++
-COPY backend/package.json ./
-RUN npm install --production
+COPY backend/package.json ./backend/
+RUN cd backend && npm install --production
 
 # Copy backend build
-COPY --from=builder /app/dist ./dist
-COPY backend/config ./config
+COPY --from=builder /app/dist ./backend/dist
+COPY backend/config ./backend/config
 
 # Copy frontend build
 COPY --from=frontend /app/dist ./frontend/dist
 
 EXPOSE 3000
 
-CMD ["node", "dist/index.js"]
+CMD ["node", "backend/dist/index.js"]
