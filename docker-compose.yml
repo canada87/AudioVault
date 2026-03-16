@@ -26,7 +26,7 @@ services:
       - TRANSCRIPTION_CRON=${TRANSCRIPTION_CRON:-0 4 * * *}
       - LLM_POLL_INTERVAL=${LLM_POLL_INTERVAL:-30}
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/health']
+      test: ['CMD', 'node', '-e', "fetch('http://localhost:3000/api/health').then(r=>{if(!r.ok)throw 1}).catch(()=>process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 3
