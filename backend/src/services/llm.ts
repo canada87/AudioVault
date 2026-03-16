@@ -22,14 +22,24 @@ export interface LLMResult {
 }
 
 function loadPrompt(): string {
+  // 1. Check DB/runtime setting (set by Settings UI → process.env)
+  const dbPrompt = process.env['LLM_PROMPT'];
+  if (dbPrompt && dbPrompt.trim()) {
+    return dbPrompt;
+  }
+
+  // 2. Check prompt file
   const promptFile = process.env['LLM_PROMPT_FILE'];
   if (promptFile) {
     try {
-      return fs.readFileSync(promptFile, 'utf-8');
+      const content = fs.readFileSync(promptFile, 'utf-8');
+      if (content.trim()) return content;
     } catch (_e) {
       console.warn(`Could not read prompt file ${promptFile}, using default`);
     }
   }
+
+  // 3. Hardcoded default
   return DEFAULT_PROMPT;
 }
 
@@ -38,25 +48,28 @@ function buildPrompt(transcription: string): string {
   return template.replace('{transcription}', () => transcription);
 }
 
+/**
+ * Parse the LLM response into summary + notes.
+ * Works with any language — splits on ## headers.
+ * First section → summary, remaining sections → notes.
+ */
 function parseResponse(rawText: string): LLMResult {
-  // Extract the Summary section
-  const summaryMatch = rawText.match(/##\s*Summary\s*\n([\s\S]*?)(?=##\s*Key Points|##\s*Action Items|$)/i);
-  const keyPointsMatch = rawText.match(/##\s*Key Points\s*\n([\s\S]*?)(?=##\s*Action Items|$)/i);
-  const actionItemsMatch = rawText.match(/##\s*Action Items\s*\n([\s\S]*?)(?=##\s|$)/i);
+  // Split on ## headers, keeping the header text
+  const sections = rawText.split(/(?=^##\s+)/m).filter((s) => s.trim());
 
-  const summary = summaryMatch ? summaryMatch[1]?.trim() ?? '' : rawText.trim();
-
-  // Combine Key Points and Action Items into notes
-  const keyPoints = keyPointsMatch ? keyPointsMatch[1]?.trim() ?? '' : '';
-  const actionItems = actionItemsMatch ? actionItemsMatch[1]?.trim() ?? '' : '';
-
-  let notes = '';
-  if (keyPoints) {
-    notes += `## Key Points\n${keyPoints}`;
+  if (sections.length === 0) {
+    return { summary: rawText.trim(), notes: '' };
   }
-  if (actionItems) {
-    notes += notes ? `\n\n## Action Items\n${actionItems}` : `## Action Items\n${actionItems}`;
-  }
+
+  // First ## section → summary (strip the header line)
+  const firstSection = sections[0];
+  const summary = firstSection.replace(/^##\s+.*\n/, '').trim();
+
+  // Remaining sections → notes (keep headers intact)
+  const notes = sections
+    .slice(1)
+    .map((s) => s.trim())
+    .join('\n\n');
 
   return { summary, notes };
 }

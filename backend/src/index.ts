@@ -14,6 +14,8 @@ import { registerTagRoutes } from './routes/tags';
 import { registerAudioRoutes } from './routes/audio';
 import { registerStatsRoutes } from './routes/stats';
 import { registerLogRoutes } from './routes/logs';
+import db from './db';
+import { settings } from './db/schema';
 import { logStore } from './services/logStore';
 import { startWatcher } from './watcher';
 import { startTranscriptionScheduler } from './scheduler/transcription';
@@ -98,6 +100,15 @@ async function main(): Promise<void> {
     });
     app.log.info({ frontendDist }, 'Serving frontend static files');
   }
+
+  // Load DB settings into process.env (so LLM_PROMPT etc. survive restarts)
+  const dbSettings = await db.select().from(settings);
+  for (const s of dbSettings) {
+    if (!process.env[s.key] || s.key === 'LLM_PROMPT') {
+      process.env[s.key] = s.value;
+    }
+  }
+  app.log.info({ count: dbSettings.length }, 'Loaded settings from DB');
 
   // Register routes
   await registerRecordRoutes(app);
