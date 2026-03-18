@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { Search, ChevronUp, ChevronDown, Filter, Loader2, X, Play } from 'lucide-react';
+import { Search, ChevronUp, ChevronDown, Filter, Loader2, X, Play, Volume2 } from 'lucide-react';
 import { fetchRecords, triggerTranscribe } from '../api/records';
 import { fetchTags } from '../api/tags';
 import type { AudioRecord } from '../api/records';
@@ -308,6 +308,9 @@ export default function ListView(): React.ReactElement {
                     </button>
                   </th>
                   <th className="text-left p-3 font-medium text-muted-foreground">Duration</th>
+                  <th className="text-center p-3 font-medium text-muted-foreground w-16">
+                    <Volume2 className="w-3.5 h-3.5 mx-auto" />
+                  </th>
                   <th className="text-left p-3 font-medium text-muted-foreground">
                     <button
                       type="button"
@@ -323,7 +326,7 @@ export default function ListView(): React.ReactElement {
               <tbody>
                 {pageRecords.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-12 text-muted-foreground">
+                    <td colSpan={7} className="text-center py-12 text-muted-foreground">
                       No recordings found
                     </td>
                   </tr>
@@ -354,6 +357,13 @@ export default function ListView(): React.ReactElement {
                       </td>
                       <td className="p-3">
                         <DurationDisplay seconds={record.duration_seconds} />
+                      </td>
+                      <td className="p-3 text-center">
+                        {!record.audio_deleted ? (
+                          <Volume2 className="w-4 h-4 text-green-600 mx-auto" />
+                        ) : (
+                          <span className="text-muted-foreground/40">—</span>
+                        )}
                       </td>
                       <td className="p-3">
                         <StatusBadge status={record.status} />
