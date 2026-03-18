@@ -36,6 +36,7 @@ export interface RecordsQueryParams {
   limit?: number;
   search?: string;
   tags?: string;
+  tagMode?: 'or' | 'and';
   status?: string;
   dateFrom?: string;
   dateTo?: string;

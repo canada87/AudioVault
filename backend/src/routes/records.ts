@@ -15,6 +15,7 @@ interface PaginatedQuery {
   limit?: number;
   search?: string;
   tags?: string;
+  tagMode?: 'or' | 'and';
   status?: string;
   dateFrom?: string;
   dateTo?: string;
@@ -77,6 +78,7 @@ export async function registerRecordRoutes(app: FastifyInstance): Promise<void> 
       limit = 20,
       search,
       tags: tagFilter,
+      tagMode = 'or',
       status,
       dateFrom,
       dateTo,
@@ -152,11 +154,24 @@ export async function registerRecordRoutes(app: FastifyInstance): Promise<void> 
     if (tagFilter) {
       const tagIds = tagFilter.split(',').map(Number).filter(Boolean);
       if (tagIds.length > 0) {
-        const recordsWithTags = await db
-          .selectDistinct({ record_id: recordTags.record_id })
-          .from(recordTags)
-          .where(inArray(recordTags.tag_id, tagIds));
-        const recordIds = recordsWithTags.map((r) => r.record_id);
+        let recordIds: number[];
+        if (tagMode === 'and' && tagIds.length > 1) {
+          // AND mode: records must have ALL selected tags
+          const rows = await db
+            .select({ record_id: recordTags.record_id })
+            .from(recordTags)
+            .where(inArray(recordTags.tag_id, tagIds))
+            .groupBy(recordTags.record_id)
+            .having(sql`count(distinct ${recordTags.tag_id}) = ${tagIds.length}`);
+          recordIds = rows.map((r) => r.record_id);
+        } else {
+          // OR mode: records with ANY of the selected tags
+          const rows = await db
+            .selectDistinct({ record_id: recordTags.record_id })
+            .from(recordTags)
+            .where(inArray(recordTags.tag_id, tagIds));
+          recordIds = rows.map((r) => r.record_id);
+        }
         if (recordIds.length === 0) {
           return reply.send({ data: [], total: 0, page, limit });
         }

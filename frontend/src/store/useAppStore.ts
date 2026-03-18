@@ -7,6 +7,7 @@ interface AppState {
   searchQuery: string;
   statusFilter: string;
   tagFilter: string[];
+  tagFilterMode: 'or' | 'and';
   sortBy: string;
   sortOrder: 'asc' | 'desc';
 
@@ -16,6 +17,7 @@ interface AppState {
   setSearchQuery: (query: string) => void;
   setStatusFilter: (status: string) => void;
   setTagFilter: (tags: string[]) => void;
+  setTagFilterMode: (mode: 'or' | 'and') => void;
   setSortBy: (by: string) => void;
   setSortOrder: (order: 'asc' | 'desc') => void;
   toggleSortOrder: () => void;
@@ -27,6 +29,7 @@ export const useAppStore = create<AppState>((set) => ({
   searchQuery: '',
   statusFilter: '',
   tagFilter: [],
+  tagFilterMode: 'or',
   sortBy: 'recorded_at',
   sortOrder: 'desc',
 
@@ -41,6 +44,7 @@ export const useAppStore = create<AppState>((set) => ({
   setSearchQuery: (query) => set({ searchQuery: query }),
   setStatusFilter: (status) => set({ statusFilter: status }),
   setTagFilter: (tags) => set({ tagFilter: tags }),
+  setTagFilterMode: (mode) => set({ tagFilterMode: mode }),
   setSortBy: (by) => set({ sortBy: by }),
   setSortOrder: (order) => set({ sortOrder: order }),
   toggleSortOrder: () =>

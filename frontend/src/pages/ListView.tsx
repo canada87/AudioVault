@@ -28,6 +28,7 @@ export default function ListView(): React.ReactElement {
     searchQuery,
     statusFilter,
     tagFilter,
+    tagFilterMode,
     sortBy,
     sortOrder,
     selectedRecordId,
@@ -35,6 +36,7 @@ export default function ListView(): React.ReactElement {
     setSearchQuery,
     setStatusFilter,
     setTagFilter,
+    setTagFilterMode,
     setSortBy,
     setSortOrder,
     openSideSheet,
@@ -60,7 +62,7 @@ export default function ListView(): React.ReactElement {
   }, [debouncedSearch, statusFilter, tagFilter, sortBy, sortOrder]);
 
   const { data, isLoading, isFetching } = useQuery({
-    queryKey: ['records', page, debouncedSearch, statusFilter, tagFilter.join(','), sortBy, sortOrder],
+    queryKey: ['records', page, debouncedSearch, statusFilter, tagFilter.join(','), tagFilterMode, sortBy, sortOrder],
     queryFn: () =>
       fetchRecords({
         page,
@@ -68,6 +70,7 @@ export default function ListView(): React.ReactElement {
         search: debouncedSearch || undefined,
         status: statusFilter || undefined,
         tags: tagFilter.length > 0 ? tagFilter.join(',') : undefined,
+        tagMode: tagFilter.length > 1 ? tagFilterMode : undefined,
         sortBy,
         sortOrder,
       }),
@@ -217,6 +220,16 @@ export default function ListView(): React.ReactElement {
                   {tag.name}
                 </button>
               ))}
+              {tagFilter.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setTagFilterMode(tagFilterMode === 'or' ? 'and' : 'or')}
+                  className="px-2 py-0.5 text-xs rounded-full border font-medium transition-colors bg-secondary text-secondary-foreground border-secondary hover:bg-secondary/80"
+                  title={tagFilterMode === 'or' ? 'Showing records with ANY selected tag' : 'Showing records with ALL selected tags'}
+                >
+                  {tagFilterMode.toUpperCase()}
+                </button>
+              )}
               {tagFilter.length > 0 && (
                 <button
                   type="button"
