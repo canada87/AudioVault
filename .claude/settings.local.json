@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(du -sh /c/Users/ajaca/OneDrive/ponte/programmi/python/vargroup/repository/PersonalProjects/audiovault0/*)"
+      "Bash(du -sh /c/Users/ajaca/OneDrive/ponte/programmi/python/vargroup/repository/PersonalProjects/audiovault0/*)",
+      "Bash(npx tsc:*)",
+      "Bash(./node_modules/.bin/tsc --noEmit --pretty)"
     ]
   }
 }

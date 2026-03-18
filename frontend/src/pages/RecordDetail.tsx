@@ -27,6 +27,7 @@ import {
   getAudioUrl,
   getExportUrl,
 } from '../api/records';
+import type { AudioRecord, Tag } from '../api/records';
 import { fetchTags, createTag } from '../api/tags';
 import StatusBadge from '../components/StatusBadge';
 import TagPill from '../components/TagPill';
@@ -110,7 +111,28 @@ export default function RecordDetail({ recordId, onClose }: RecordDetailProps): 
 
   const tagsMutation = useMutation({
     mutationFn: (tagIds: number[]) => patchRecord(recordId, { tagIds }),
-    onSuccess: () => {
+    onMutate: async (newTagIds) => {
+      // Cancel in-flight refetches so they don't overwrite our optimistic update
+      await queryClient.cancelQueries({ queryKey: ['record', recordId] });
+      const previous = queryClient.getQueryData<AudioRecord>(['record', recordId]);
+      // Optimistically update the cache so subsequent tag operations see current state
+      queryClient.setQueryData<AudioRecord>(['record', recordId], (old) => {
+        if (!old) return old;
+        const newTags = newTagIds
+          .map((id) => allTags.find((t) => t.id === id))
+          .filter((t): t is Tag => t !== undefined);
+        return { ...old, tags: newTags };
+      });
+      return { previous };
+    },
+    onError: (_err, _variables, context) => {
+      // Rollback on error
+      if (context?.previous) {
+        queryClient.setQueryData(['record', recordId], context.previous);
+      }
+    },
+    onSettled: () => {
+      // Always refetch to ensure consistency with server
       void queryClient.invalidateQueries({ queryKey: ['record', recordId] });
       void queryClient.invalidateQueries({ queryKey: ['records'] });
     },
