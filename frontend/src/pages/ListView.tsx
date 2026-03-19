@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { Search, ChevronUp, ChevronDown, Filter, Loader2, X, Play, Volume2 } from 'lucide-react';
-import { fetchRecords, triggerTranscribe } from '../api/records';
+import { Search, ChevronUp, ChevronDown, Filter, Loader2, X, Play, Volume2, FolderSearch } from 'lucide-react';
+import { fetchRecords, triggerTranscribe, scanAudioDirectory } from '../api/records';
 import { fetchTags } from '../api/tags';
 import type { AudioRecord } from '../api/records';
 import StatusBadge from '../components/StatusBadge';
@@ -48,6 +48,8 @@ export default function ListView(): React.ReactElement {
   const [page, setPage] = useState(1);
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
   const [transcribingBatch, setTranscribingBatch] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanResult, setScanResult] = useState<{ added: number; scanned: number } | null>(null);
 
   // Debounce search
   useEffect(() => {
@@ -161,6 +163,23 @@ export default function ListView(): React.ReactElement {
     void queryClient.invalidateQueries({ queryKey: ['records'] });
   };
 
+  const handleScan = async (): Promise<void> => {
+    setScanning(true);
+    setScanResult(null);
+    try {
+      const result = await scanAudioDirectory();
+      setScanResult(result);
+      if (result.added > 0) {
+        void queryClient.invalidateQueries({ queryKey: ['records'] });
+      }
+      setTimeout(() => setScanResult(null), 5000);
+    } catch (_e) {
+      // ignore
+    } finally {
+      setScanning(false);
+    }
+  };
+
   const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 1;
 
   return (
@@ -200,7 +219,30 @@ export default function ListView(): React.ReactElement {
                 </option>
               ))}
             </select>
+            <button
+              type="button"
+              onClick={() => void handleScan()}
+              disabled={scanning}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-md border border-input bg-background hover:bg-accent disabled:opacity-50 transition-colors"
+              title="Scan audio folder for new files"
+            >
+              {scanning ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <FolderSearch className="w-4 h-4" />
+              )}
+              Scan
+            </button>
           </div>
+
+          {/* Scan result feedback */}
+          {scanResult && (
+            <div className={`text-sm px-3 py-1.5 rounded-md ${scanResult.added > 0 ? 'bg-green-500/10 text-green-600' : 'bg-muted text-muted-foreground'}`}>
+              {scanResult.added > 0
+                ? `Found ${scanResult.added} new recording${scanResult.added > 1 ? 's' : ''} (${scanResult.scanned} files scanned)`
+                : `No new recordings found (${scanResult.scanned} files scanned)`}
+            </div>
+          )}
 
           {/* Tag filters */}
           {allTags.length > 0 && (

@@ -9,6 +9,7 @@ import { enqueueTranscription } from '../scheduler/transcription';
 import { processSummary } from '../scheduler/summarizer';
 import { getRemainingToday } from '../services/limits';
 import { getTranscriptionProgress } from '../services/stt';
+import { scanDirectory } from '../watcher';
 
 interface PaginatedQuery {
   page?: number;
@@ -380,6 +381,20 @@ export async function registerRecordRoutes(app: FastifyInstance): Promise<void> 
         .header('Content-Type', 'text/markdown')
         .header('Content-Disposition', `attachment; filename="${filename}"`)
         .send(markdown);
+    },
+  );
+
+  // POST /api/records/scan — manual rescan of AUDIO_DIR
+  app.post(
+    '/api/records/scan',
+    async (_req: FastifyRequest, reply: FastifyReply) => {
+      try {
+        const result = await scanDirectory(app.log);
+        return reply.send(result);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return reply.status(500).send({ error: msg, statusCode: 500 });
+      }
     },
   );
 

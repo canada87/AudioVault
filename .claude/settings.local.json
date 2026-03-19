@@ -3,7 +3,10 @@
     "allow": [
       "Bash(du -sh /c/Users/ajaca/OneDrive/ponte/programmi/python/vargroup/repository/PersonalProjects/audiovault0/*)",
       "Bash(npx tsc:*)",
-      "Bash(./node_modules/.bin/tsc --noEmit --pretty)"
+      "Bash(./node_modules/.bin/tsc --noEmit --pretty)",
+      "Bash(grep -r \"multipart\\\\|upload\\\\|FormData\" /c/Users/ajaca/OneDrive/ponte/programmi/python/vargroup/repository/PersonalProjects/AudioVault --include=*.ts --include=*.tsx)",
+      "Bash(xargs grep:*)",
+      "Bash(npx -p typescript tsc --noEmit)"
     ]
   }
 }

@@ -92,6 +92,43 @@ async function processFile(filePath: string, logger: FastifyBaseLogger): Promise
   logger.info({ filename, recorded_at, duration_seconds }, 'New record added to database');
 }
 
+export async function scanDirectory(logger: FastifyBaseLogger): Promise<{ added: number; scanned: number }> {
+  const audioDir = process.env['AUDIO_DIR'];
+  if (!audioDir) {
+    throw new Error('AUDIO_DIR not configured');
+  }
+  if (!fs.existsSync(audioDir)) {
+    throw new Error('AUDIO_DIR does not exist');
+  }
+
+  const files = fs.readdirSync(audioDir).filter((f) =>
+    SUPPORTED_EXTENSIONS.some((ext) => f.endsWith(ext)),
+  );
+
+  let added = 0;
+  for (const file of files) {
+    const filePath = path.join(audioDir, file);
+    const normalized = normalizePath(filePath);
+    // Check if already in DB before full processing
+    const existing = await db
+      .select({ id: records.id })
+      .from(records)
+      .where(eq(records.file_path, normalized));
+
+    if (existing.length > 0) continue;
+
+    try {
+      await processFile(filePath, logger);
+      added++;
+    } catch (err: unknown) {
+      logger.error({ err, file }, 'Error processing file during manual scan');
+    }
+  }
+
+  logger.info({ added, scanned: files.length }, 'Manual scan completed');
+  return { added, scanned: files.length };
+}
+
 export function startWatcher(logger: FastifyBaseLogger): void {
   const audioDir = process.env['AUDIO_DIR'];
   if (!audioDir) {

@@ -112,6 +112,16 @@ export function getAudioUrl(id: number): string {
   return `${BASE_URL}/audio/${id}`;
 }
 
+export interface ScanResult {
+  added: number;
+  scanned: number;
+}
+
+export async function scanAudioDirectory(): Promise<ScanResult> {
+  const res = await fetch(`${BASE_URL}/records/scan`, { method: 'POST' });
+  return handleResponse<ScanResult>(res);
+}
+
 export interface ImportResult {
   imported: number;
   skipped: number;
