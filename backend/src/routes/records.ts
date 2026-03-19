@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { eq, and, gte, lte, inArray, like, desc, asc, sql } from 'drizzle-orm';
+import { eq, and, or, gte, lte, inArray, like, desc, asc, sql } from 'drizzle-orm';
 import db, { sqlite } from '../db';
 import { records, tags, recordTags } from '../db/schema';
 import { deleteAudioFile, deleteRecord, renameAudioFile } from '../services/file';
@@ -121,7 +121,12 @@ export async function registerRecordRoutes(app: FastifyInstance): Promise<void> 
     const conditions = [];
 
     if (search) {
-      conditions.push(like(records.original_name, `%${search}%`));
+      conditions.push(
+        or(
+          like(records.original_name, `%${search}%`),
+          like(records.display_name, `%${search}%`),
+        )!,
+      );
     }
 
     if (status) {
