@@ -17,7 +17,11 @@ import type { ImportResult } from '../api/records';
 import { format, subDays, eachDayOfInterval } from 'date-fns';
 import FolderBrowser from '../components/FolderBrowser';
 
-const EDITABLE_KEYS = [
+type EditableKey =
+  | { key: string; label: string; type: 'text' | 'number' | 'password'; help: string; options?: never }
+  | { key: string; label: string; type: 'select'; help: string; options: { value: string; label: string }[] };
+
+const EDITABLE_KEYS: EditableKey[] = [
   { key: 'AUDIO_DIR', label: 'Audio Directory', type: 'text', help: 'Path to the folder containing audio/video files' },
   {
     key: 'STT_POLL_INTERVAL_SECONDS',
@@ -44,10 +48,28 @@ const EDITABLE_KEYS = [
     type: 'number',
     help: 'How often to check for transcribed records needing summaries',
   },
-] as const;
-
-const READ_ONLY_KEYS = [
-  { key: 'GEMINI_MODEL', label: 'Gemini Model' },
+  {
+    key: 'LLM_PROVIDER',
+    label: 'LLM Provider',
+    type: 'select',
+    help: 'Which LLM provider to use for summarisation',
+    options: [
+      { value: 'gemini', label: 'Google Gemini' },
+      { value: 'openai', label: 'OpenAI' },
+    ],
+  },
+  {
+    key: 'GEMINI_MODEL',
+    label: 'Gemini Model',
+    type: 'text',
+    help: 'Model name used when provider is Gemini (e.g. gemini-2.5-flash)',
+  },
+  {
+    key: 'OPENAI_MODEL',
+    label: 'OpenAI Model',
+    type: 'text',
+    help: 'Model name used when provider is OpenAI (e.g. gpt-4o)',
+  },
 ];
 
 export default function SettingsPage(): React.ReactElement {
@@ -200,18 +222,31 @@ export default function SettingsPage(): React.ReactElement {
       <div className="bg-card rounded-lg border border-border p-4 space-y-4">
         <h2 className="text-base font-semibold text-foreground">Configuration</h2>
 
-        {EDITABLE_KEYS.map(({ key, label, type, help }) => (
+        {EDITABLE_KEYS.map(({ key, label, type, help, options }) => (
           <div key={key} className="space-y-1">
             <label htmlFor={key} className="text-sm font-medium text-foreground">
               {label}
             </label>
-            <input
-              id={key}
-              type={type}
-              value={formValues[key] ?? ''}
-              onChange={(e) => setFormValues((prev) => ({ ...prev, [key]: e.target.value }))}
-              className="w-full px-3 py-2 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-            />
+            {type === 'select' ? (
+              <select
+                id={key}
+                value={formValues[key] ?? ''}
+                onChange={(e) => setFormValues((prev) => ({ ...prev, [key]: e.target.value }))}
+                className="w-full px-3 py-2 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                {options?.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            ) : (
+              <input
+                id={key}
+                type={type}
+                value={formValues[key] ?? ''}
+                onChange={(e) => setFormValues((prev) => ({ ...prev, [key]: e.target.value }))}
+                className="w-full px-3 py-2 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            )}
             <p className="text-xs text-muted-foreground">{help}</p>
           </div>
         ))}
@@ -341,16 +376,6 @@ export default function SettingsPage(): React.ReactElement {
         )}
       </div>
 
-      {/* Read-only settings */}
-      <div className="bg-card rounded-lg border border-border p-4 space-y-3">
-        <h2 className="text-base font-semibold text-foreground">Environment (read-only)</h2>
-        {READ_ONLY_KEYS.map(({ key, label }) => (
-          <div key={key} className="flex gap-3">
-            <span className="text-sm text-muted-foreground w-40 shrink-0">{label}:</span>
-            <span className="text-sm font-mono text-foreground">{settings?.[key] ?? '—'}</span>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }

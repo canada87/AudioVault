@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
 import * as fs from 'fs';
 
 const DEFAULT_PROMPT = `You are an assistant that creates structured notes from audio transcriptions.
@@ -74,20 +75,42 @@ function parseResponse(rawText: string): LLMResult {
   return { summary, notes };
 }
 
-export async function generateSummary(transcription: string): Promise<LLMResult> {
+async function generateWithGemini(prompt: string): Promise<string> {
   const apiKey = process.env['GEMINI_API_KEY'];
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY is not configured');
   }
-
-  const model = process.env['GEMINI_MODEL'] ?? 'gemini-1.5-flash';
+  const model = process.env['GEMINI_MODEL'] ?? 'gemini-2.5-flash';
   const genAI = new GoogleGenerativeAI(apiKey);
   const geminiModel = genAI.getGenerativeModel({ model });
-
-  const prompt = buildPrompt(transcription);
   const result = await geminiModel.generateContent(prompt);
-  const response = result.response;
-  const text = response.text();
+  return result.response.text();
+}
 
-  return parseResponse(text);
+async function generateWithOpenAI(prompt: string): Promise<string> {
+  const apiKey = process.env['OPENAI_API_KEY'];
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY is not configured');
+  }
+  const model = process.env['OPENAI_MODEL'] ?? 'gpt-4o';
+  const client = new OpenAI({ apiKey });
+  const completion = await client.chat.completions.create({
+    model,
+    messages: [{ role: 'user', content: prompt }],
+  });
+  return completion.choices[0]?.message?.content ?? '';
+}
+
+export async function generateSummary(transcription: string): Promise<LLMResult> {
+  const provider = (process.env['LLM_PROVIDER'] ?? 'gemini').toLowerCase();
+  const prompt = buildPrompt(transcription);
+
+  let rawText: string;
+  if (provider === 'openai') {
+    rawText = await generateWithOpenAI(prompt);
+  } else {
+    rawText = await generateWithGemini(prompt);
+  }
+
+  return parseResponse(rawText);
 }

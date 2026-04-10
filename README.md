@@ -1,18 +1,21 @@
 # AudioVault
 
-AudioVault is a self-hosted web application for managing, transcribing, and summarizing audio recordings. It watches a directory for MP4 files, automatically registers them, and provides a rich UI for transcription (via Scriberr STT API) and AI-powered summarization (via Google Gemini).
+AudioVault is a self-hosted web application for managing, transcribing, and summarizing audio recordings. It watches a directory for MP4/MKV files, automatically registers them, and provides a rich UI for transcription (via Scriberr STT API) and AI-powered summarization (via Google Gemini or OpenAI).
 
 ## Features
 
-- Automatic file watching and registration
+- Automatic file watching and registration (MP4, MKV)
 - Scheduled or on-demand transcription via Scriberr STT
-- AI-powered summarization via Google Gemini
-- Full-text search across transcriptions and summaries
+- AI-powered summarization — choose between **Google Gemini** or **OpenAI** as provider
+- Switchable LLM provider and model at runtime from the Settings UI
+- Full-text search across transcriptions, summaries, and display names
 - Calendar and list views
 - Audio player with waveform visualization
 - Tag-based organization
 - Markdown export
 - Daily LLM rate limiting
+- In-app log viewer
+- Import transcriptions from `.txt` files
 
 ## Prerequisites
 
@@ -20,14 +23,25 @@ AudioVault is a self-hosted web application for managing, transcribing, and summ
 - npm 9+
 - `ffprobe` (part of ffmpeg) installed and in PATH
 - A [Scriberr](https://github.com/bofenghuang/scriberr) instance (for transcription)
-- A Google Gemini API key (for summarization)
+- A Google Gemini API key **and/or** an OpenAI API key (for summarization)
 
 ## Project Structure
 
 ```
 audiovault/
-├── backend/       Node.js + Fastify + SQLite + Drizzle ORM
-├── frontend/      React 18 + Vite + Tailwind CSS
+├── backend/              Node.js + Fastify + SQLite + Drizzle ORM
+│   ├── src/
+│   │   ├── db/           Drizzle schema and database client
+│   │   ├── routes/       Fastify route handlers
+│   │   ├── scheduler/    Cron-based transcription and summarizer pollers
+│   │   ├── services/     llm.ts, stt.ts, file.ts, limits.ts, logStore.ts
+│   │   ├── watcher.ts    Chokidar file watcher + manual scan
+│   │   └── index.ts      Server entry point
+├── frontend/             React 18 + Vite + Tailwind CSS
+│   └── src/
+│       ├── api/          Typed fetch wrappers
+│       ├── components/   Reusable UI components
+│       └── pages/        CalendarView, ListView, RecordDetail, SettingsPage, LogsPage
 ├── ecosystem.config.js   PM2 configuration
 └── docker-compose.yml    Docker deployment
 ```
@@ -57,11 +71,14 @@ Edit `backend/.env` with your configuration:
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `AUDIO_DIR` | Path to directory containing MP4 recordings | Yes |
+| `AUDIO_DIR` | Path to directory containing MP4/MKV recordings | Yes |
 | `STT_API_URL` | URL of your Scriberr instance | For transcription |
 | `STT_API_KEY` | Scriberr API key | For transcription |
-| `GEMINI_API_KEY` | Google Gemini API key | For summarization |
-| `GEMINI_MODEL` | Gemini model to use (default: `gemini-1.5-flash`) | No |
+| `LLM_PROVIDER` | LLM provider: `gemini` (default) or `openai` | No |
+| `GEMINI_API_KEY` | Google Gemini API key | If using Gemini |
+| `GEMINI_MODEL` | Gemini model (default: `gemini-2.5-flash`) | No |
+| `OPENAI_API_KEY` | OpenAI API key | If using OpenAI |
+| `OPENAI_MODEL` | OpenAI model (default: `gpt-4o`) | No |
 | `LLM_DAILY_LIMIT` | Max LLM calls per day (default: `5`) | No |
 | `TRANSCRIPTION_CRON` | Cron schedule for auto-transcription (default: `0 4 * * *`) | No |
 | `LLM_POLL_INTERVAL` | Minutes between summarizer polls (default: `30`) | No |
@@ -69,12 +86,15 @@ Edit `backend/.env` with your configuration:
 | `HOST` | Backend bind address (default: `0.0.0.0`) | No |
 | `DB_PATH` | SQLite database file path (default: `./data/audiovault.db`) | No |
 
+> **Switching provider at runtime:** all LLM settings (`LLM_PROVIDER`, `GEMINI_MODEL`, `OPENAI_MODEL`) can be changed from the Settings page without restarting the server.
+
 ### 3. Audio file naming convention
 
-AudioVault expects MP4 files named in the format:
+AudioVault expects MP4 or MKV files named in the format:
 
 ```
 YYYY-MM-DD HH-MM-SS.mp4
+YYYY-MM-DD HH-MM-SS.mkv
 ```
 
 Example: `2024-01-15 14-30-00.mp4`
@@ -83,7 +103,7 @@ Files not matching this pattern will be skipped.
 
 ### 4. Custom LLM prompt
 
-You can customize the summarization prompt by editing `backend/config/prompt.txt`. Use `{transcription}` as the placeholder for the transcription text.
+You can customize the summarization prompt from the Settings UI or by pointing `LLM_PROMPT_FILE` to a text file. Use `{transcription}` as the placeholder for the transcription text. The prompt applies to whichever provider is active.
 
 ## Development
 
@@ -128,9 +148,8 @@ In production, the backend serves the frontend's static files from `frontend/dis
 ```bash
 # Set required environment variables
 export AUDIO_DIR=/path/to/your/recordings
-export GEMINI_API_KEY=your_key_here
+export GEMINI_API_KEY=your_gemini_key      # or use OPENAI_API_KEY
 export STT_API_URL=https://your-scriberr-instance.com
-export STT_API_KEY=your_stt_key
 
 docker-compose up -d
 ```
@@ -160,14 +179,17 @@ npm run db:migrate
 | POST | `/api/records/:id/transcribe` | Trigger transcription |
 | POST | `/api/records/:id/summarize` | Trigger summarization |
 | GET | `/api/records/:id/export` | Download Markdown export |
+| POST | `/api/records/import` | Import transcriptions from `.txt` files |
+| POST | `/api/records/scan` | Trigger manual directory scan |
 | GET | `/api/audio/:id` | Stream audio (supports HTTP Range) |
 | GET | `/api/tags` | List all tags |
 | POST | `/api/tags` | Create tag |
 | DELETE | `/api/tags/:id` | Delete tag |
 | GET | `/api/stats` | Get statistics |
 | GET | `/api/limits/today` | Get today's LLM usage |
-| GET | `/api/settings` | Get settings |
-| PATCH | `/api/settings` | Update settings |
+| GET | `/api/settings` | Get all settings |
+| PATCH | `/api/settings` | Update settings (takes effect immediately) |
+| GET | `/api/logs` | Stream recent application logs |
 | GET | `/api/health` | Health check |
 
 ## License

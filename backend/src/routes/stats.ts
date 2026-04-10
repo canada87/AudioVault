@@ -72,7 +72,9 @@ export async function registerStatsRoutes(app: FastifyInstance): Promise<void> {
       LLM_DAILY_LIMIT: process.env['LLM_DAILY_LIMIT'] ?? '5',
       TRANSCRIPTION_CRON: process.env['TRANSCRIPTION_CRON'] ?? '0 4 * * *',
       LLM_POLL_INTERVAL: process.env['LLM_POLL_INTERVAL'] ?? '30',
-      GEMINI_MODEL: process.env['GEMINI_MODEL'] ?? 'gemini-1.5-flash',
+      LLM_PROVIDER: process.env['LLM_PROVIDER'] ?? 'gemini',
+      GEMINI_MODEL: process.env['GEMINI_MODEL'] ?? 'gemini-2.5-flash',
+      OPENAI_MODEL: process.env['OPENAI_MODEL'] ?? 'gpt-4o',
       STT_POLL_INTERVAL_SECONDS: process.env['STT_POLL_INTERVAL_SECONDS'] ?? '3',
       STT_POLL_TIMEOUT_SECONDS: process.env['STT_POLL_TIMEOUT_SECONDS'] ?? '300',
     };
@@ -93,6 +95,7 @@ export async function registerStatsRoutes(app: FastifyInstance): Promise<void> {
       const ALLOWED_KEYS = new Set([
         'LLM_DAILY_LIMIT', 'TRANSCRIPTION_CRON', 'LLM_POLL_INTERVAL', 'LLM_PROMPT',
         'AUDIO_DIR', 'STT_POLL_INTERVAL_SECONDS', 'STT_POLL_TIMEOUT_SECONDS',
+        'LLM_PROVIDER', 'GEMINI_MODEL', 'OPENAI_MODEL',
       ]);
 
       for (const [key, value] of Object.entries(body)) {

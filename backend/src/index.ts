@@ -32,7 +32,10 @@ const envSchema = z.object({
   STT_POLL_INTERVAL_SECONDS: z.string().default('3'),
   STT_POLL_TIMEOUT_SECONDS: z.string().default('300'),
   GEMINI_API_KEY: z.string().optional(),
-  GEMINI_MODEL: z.string().default('gemini-1.5-flash'),
+  GEMINI_MODEL: z.string().default('gemini-2.5-flash'),
+  LLM_PROVIDER: z.enum(['gemini', 'openai']).default('gemini'),
+  OPENAI_API_KEY: z.string().optional(),
+  OPENAI_MODEL: z.string().default('gpt-4o'),
   LLM_DAILY_LIMIT: z.string().default('5'),
   LLM_PROMPT_FILE: z.string().optional(),
   TRANSCRIPTION_CRON: z.string().default('0 4 * * *'),
@@ -103,8 +106,9 @@ async function main(): Promise<void> {
 
   // Load DB settings into process.env (so LLM_PROMPT etc. survive restarts)
   const dbSettings = await db.select().from(settings);
+  const DB_OVERRIDE_KEYS = new Set(['LLM_PROMPT', 'LLM_PROVIDER', 'GEMINI_MODEL', 'OPENAI_MODEL']);
   for (const s of dbSettings) {
-    if (!process.env[s.key] || s.key === 'LLM_PROMPT') {
+    if (!process.env[s.key] || DB_OVERRIDE_KEYS.has(s.key)) {
       process.env[s.key] = s.value;
     }
   }
