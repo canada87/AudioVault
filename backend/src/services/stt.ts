@@ -116,6 +116,13 @@ async function pollForTranscript(config: STTConfig): Promise<string> {
       };
     }
 
+    // Capture partial text before any break — the idle response after
+    // job completion may still carry the final chunk's cumulative text
+    // that the last `transcribing` poll hadn't yet observed.
+    if (partial && partial.length >= finalText.length) {
+      finalText = partial;
+    }
+
     // Still uploading — server idle, no job yet
     if (status === 'idle' && !jobId && !jobSeen) {
       currentProgress = null;
@@ -127,11 +134,20 @@ async function pollForTranscript(config: STTConfig): Promise<string> {
       currentProgress = { currentChunk: total || 1, totalChunks: total || 1, percent: 100 };
       break;
     }
+  }
 
-    // Accumulate partial text while transcription is in progress
-    if (partial) {
+  // Grace-period poll: the server may still be flushing the last chunk's
+  // partial_text right as it transitions to idle. One extra read catches it.
+  try {
+    await new Promise((resolve) => setTimeout(resolve, Math.min(pollIntervalMs, 2000)));
+    const res = await fetchWithSSL(`${config.apiUrl}/status`);
+    const data = (await res.json()) as ParakeetStatus;
+    const partial = data.partial_text ?? '';
+    if (partial && partial.length > finalText.length) {
       finalText = partial;
     }
+  } catch {
+    // Best-effort — keep whatever finalText we already have
   }
 
   if (!finalText && !jobSeen) {
