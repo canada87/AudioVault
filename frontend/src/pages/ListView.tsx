@@ -7,6 +7,7 @@ import { fetchTags } from '../api/tags';
 import type { AudioRecord } from '../api/records';
 import StatusBadge from '../components/StatusBadge';
 import TagPill from '../components/TagPill';
+import { familyFor } from '../components/tagColors';
 import DurationDisplay from '../components/DurationDisplay';
 import RecordDetail from './RecordDetail';
 import { useAppStore } from '../store/useAppStore';
@@ -272,16 +273,15 @@ export default function ListView(): React.ReactElement {
             const renderChip = (tag: typeof allTags[number]): React.ReactElement | null => {
               const selected = tagFilter.includes(String(tag.id));
               if (!matches(tag.name) && !selected) return null;
+              const family = familyFor(tag);
+              const chipClasses = selected ? family.filterSelected : family.filterUnselected;
               return (
                 <button
                   key={tag.id}
                   type="button"
                   onClick={() => toggleTagFilter(String(tag.id))}
-                  className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${
-                    selected
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-background text-muted-foreground border-border hover:border-primary'
-                  }`}
+                  className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${chipClasses}`}
+                  title={tag.parent_id != null && tag.parent_name ? `${tag.parent_name} › ${tag.name}` : tag.name}
                 >
                   {tag.name}
                 </button>
