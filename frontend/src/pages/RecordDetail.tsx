@@ -27,8 +27,9 @@ import {
   getAudioUrl,
   getExportUrl,
 } from '../api/records';
-import type { AudioRecord, Tag } from '../api/records';
+import type { AudioRecord } from '../api/records';
 import { fetchTags, createTag } from '../api/tags';
+import type { TagWithCount } from '../api/tags';
 import StatusBadge from '../components/StatusBadge';
 import TagPill from '../components/TagPill';
 import DurationDisplay from '../components/DurationDisplay';
@@ -120,7 +121,7 @@ export default function RecordDetail({ recordId, onClose }: RecordDetailProps): 
         if (!old) return old;
         const newTags = newTagIds
           .map((id) => allTags.find((t) => t.id === id))
-          .filter((t): t is Tag => t !== undefined);
+          .filter((t): t is TagWithCount => t !== undefined);
         return { ...old, tags: newTags };
       });
       return { previous };

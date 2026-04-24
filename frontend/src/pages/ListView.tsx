@@ -50,6 +50,7 @@ export default function ListView(): React.ReactElement {
   const [transcribingBatch, setTranscribingBatch] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanResult, setScanResult] = useState<{ added: number; scanned: number } | null>(null);
+  const [tagFilterSearch, setTagFilterSearch] = useState('');
 
   // Debounce search
   useEffect(() => {
@@ -248,20 +249,37 @@ export default function ListView(): React.ReactElement {
           {allTags.length > 0 && (
             <div className="flex flex-wrap gap-1.5 items-center">
               <Filter className="w-3.5 h-3.5 text-muted-foreground" />
-              {allTags.map((tag) => (
-                <button
-                  key={tag.id}
-                  type="button"
-                  onClick={() => toggleTagFilter(String(tag.id))}
-                  className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${
-                    tagFilter.includes(String(tag.id))
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-background text-muted-foreground border-border hover:border-primary'
-                  }`}
-                >
-                  {tag.name}
-                </button>
-              ))}
+              {allTags.length > 8 && (
+                <input
+                  type="text"
+                  value={tagFilterSearch}
+                  onChange={(e) => setTagFilterSearch(e.target.value)}
+                  placeholder="Filter tags..."
+                  className="px-2 py-0.5 text-xs rounded-full border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring w-32"
+                />
+              )}
+              {allTags
+                .filter((tag) => {
+                  const q = tagFilterSearch.trim().toLowerCase();
+                  if (!q) return true;
+                  // Always keep already-selected tags visible so users can toggle them off
+                  if (tagFilter.includes(String(tag.id))) return true;
+                  return tag.name.includes(q);
+                })
+                .map((tag) => (
+                  <button
+                    key={tag.id}
+                    type="button"
+                    onClick={() => toggleTagFilter(String(tag.id))}
+                    className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${
+                      tagFilter.includes(String(tag.id))
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-background text-muted-foreground border-border hover:border-primary'
+                    }`}
+                  >
+                    {tag.name}
+                  </button>
+                ))}
               {tagFilter.length > 1 && (
                 <button
                   type="button"

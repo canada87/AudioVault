@@ -1,14 +1,16 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
-import { List, Calendar, Settings, ScrollText } from 'lucide-react';
+import { List, Calendar, Settings, ScrollText, Tag } from 'lucide-react';
 import ListView from './pages/ListView';
 import CalendarView from './pages/CalendarView';
 import SettingsPage from './pages/SettingsPage';
 import LogsPage from './pages/LogsPage';
+import TagsPage from './pages/TagsPage';
 
 const navItems = [
   { to: '/', icon: List, label: 'Recordings', end: true },
   { to: '/calendar', icon: Calendar, label: 'Calendar' },
+  { to: '/tags', icon: Tag, label: 'Tags' },
   { to: '/logs', icon: ScrollText, label: 'Logs' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
@@ -50,6 +52,7 @@ export default function App(): React.ReactElement {
           <Routes>
             <Route path="/" element={<ListView />} />
             <Route path="/calendar" element={<CalendarView />} />
+            <Route path="/tags" element={<TagsPage />} />
             <Route path="/logs" element={<LogsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>
