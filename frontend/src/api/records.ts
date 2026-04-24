@@ -1,6 +1,8 @@
 export interface Tag {
   id: number;
   name: string;
+  parent_id?: number | null;
+  parent_name?: string | null;
 }
 
 export interface AudioRecord {

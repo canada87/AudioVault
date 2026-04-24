@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { eq, and, or, gte, lte, inArray, like, desc, asc, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/sqlite-core';
 import db, { sqlite } from '../db';
 import { records, tags, recordTags } from '../db/schema';
 import { deleteAudioFile, deleteRecord, renameAudioFile } from '../services/file';
@@ -46,7 +47,7 @@ interface RecordWithTags {
   duration_seconds: number | null;
   created_at: number;
   updated_at: number;
-  tags: Array<{ id: number; name: string }>;
+  tags: Array<{ id: number; name: string; parent_id: number | null; parent_name: string | null }>;
   remaining_today?: number;
   transcription_progress?: { currentChunk: number; totalChunks: number; percent: number } | null;
 }
@@ -55,10 +56,17 @@ async function getRecordWithTags(recordId: number): Promise<RecordWithTags | nul
   const [record] = await db.select().from(records).where(eq(records.id, recordId));
   if (!record) return null;
 
+  const parents = alias(tags, 'parents');
   const tagRows = await db
-    .select({ id: tags.id, name: tags.name })
+    .select({
+      id: tags.id,
+      name: tags.name,
+      parent_id: tags.parent_id,
+      parent_name: parents.name,
+    })
     .from(tags)
     .innerJoin(recordTags, eq(tags.id, recordTags.tag_id))
+    .leftJoin(parents, eq(parents.id, tags.parent_id))
     .where(eq(recordTags.record_id, recordId));
 
   const dailyLimit = parseInt(process.env['LLM_DAILY_LIMIT'] ?? '5', 10);

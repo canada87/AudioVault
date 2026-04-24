@@ -140,7 +140,7 @@ export default function RecordDetail({ recordId, onClose }: RecordDetailProps): 
   });
 
   const createTagMutation = useMutation({
-    mutationFn: createTag,
+    mutationFn: (name: string) => createTag(name),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['tags'] });
     },
@@ -441,9 +441,15 @@ export default function RecordDetail({ recordId, onClose }: RecordDetailProps): 
                     key={tag.id}
                     type="button"
                     onMouseDown={() => void handleAddTag(tag.id)}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors"
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center gap-1"
                   >
-                    {tag.name}
+                    {tag.parent_id != null && tag.parent_name && (
+                      <>
+                        <span className="text-muted-foreground">{tag.parent_name}</span>
+                        <span className="text-muted-foreground/60">›</span>
+                      </>
+                    )}
+                    <span>{tag.name}</span>
                   </button>
                 ))}
                 {showCreateOption && (

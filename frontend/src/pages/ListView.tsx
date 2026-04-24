@@ -245,62 +245,109 @@ export default function ListView(): React.ReactElement {
             </div>
           )}
 
-          {/* Tag filters */}
-          {allTags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 items-center">
-              <Filter className="w-3.5 h-3.5 text-muted-foreground" />
-              {allTags.length > 8 && (
-                <input
-                  type="text"
-                  value={tagFilterSearch}
-                  onChange={(e) => setTagFilterSearch(e.target.value)}
-                  placeholder="Filter tags..."
-                  className="px-2 py-0.5 text-xs rounded-full border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring w-32"
-                />
-              )}
-              {allTags
-                .filter((tag) => {
-                  const q = tagFilterSearch.trim().toLowerCase();
-                  if (!q) return true;
-                  // Always keep already-selected tags visible so users can toggle them off
-                  if (tagFilter.includes(String(tag.id))) return true;
-                  return tag.name.includes(q);
-                })
-                .map((tag) => (
+          {/* Tag filters (grouped by hierarchy) */}
+          {allTags.length > 0 && (() => {
+            const q = tagFilterSearch.trim().toLowerCase();
+            const matches = (name: string): boolean => !q || name.includes(q);
+
+            // Group: roots (parent_id null) carry their children; orphans are treated as roots.
+            const rootsById = new Map<number, typeof allTags[number]>();
+            allTags.forEach((t) => { if (t.parent_id == null) rootsById.set(t.id, t); });
+
+            const childrenByParent = new Map<number, typeof allTags>();
+            allTags.forEach((t) => {
+              if (t.parent_id != null && rootsById.has(t.parent_id)) {
+                const list = childrenByParent.get(t.parent_id) ?? [];
+                list.push(t);
+                childrenByParent.set(t.parent_id, list);
+              }
+            });
+
+            const sortedRoots = [...rootsById.values()].sort((a, b) => a.name.localeCompare(b.name));
+            // Orphans (parent_id set but parent not present) → treat as roots too
+            const orphans = allTags
+              .filter((t) => t.parent_id != null && !rootsById.has(t.parent_id))
+              .sort((a, b) => a.name.localeCompare(b.name));
+
+            const renderChip = (tag: typeof allTags[number]): React.ReactElement | null => {
+              const selected = tagFilter.includes(String(tag.id));
+              if (!matches(tag.name) && !selected) return null;
+              return (
+                <button
+                  key={tag.id}
+                  type="button"
+                  onClick={() => toggleTagFilter(String(tag.id))}
+                  className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${
+                    selected
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-background text-muted-foreground border-border hover:border-primary'
+                  }`}
+                >
+                  {tag.name}
+                </button>
+              );
+            };
+
+            const renderGroup = (
+              root: typeof allTags[number],
+              children: typeof allTags,
+            ): React.ReactElement | null => {
+              const kidChips = children
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map(renderChip)
+                .filter((x): x is React.ReactElement => x !== null);
+              const rootSelected = tagFilter.includes(String(root.id));
+              const rootVisible = matches(root.name) || rootSelected || kidChips.length > 0;
+              if (!rootVisible) return null;
+              return (
+                <div key={root.id} className="flex flex-wrap items-center gap-1.5">
+                  {renderChip(root)}
+                  {kidChips.length > 0 && (
+                    <>
+                      <span className="text-xs text-muted-foreground/60 mx-0.5">›</span>
+                      {kidChips}
+                    </>
+                  )}
+                </div>
+              );
+            };
+
+            return (
+              <div className="flex flex-wrap gap-x-3 gap-y-2 items-center">
+                <Filter className="w-3.5 h-3.5 text-muted-foreground" />
+                {allTags.length > 8 && (
+                  <input
+                    type="text"
+                    value={tagFilterSearch}
+                    onChange={(e) => setTagFilterSearch(e.target.value)}
+                    placeholder="Filter tags..."
+                    className="px-2 py-0.5 text-xs rounded-full border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring w-32"
+                  />
+                )}
+                {sortedRoots.map((root) => renderGroup(root, childrenByParent.get(root.id) ?? []))}
+                {orphans.map((t) => renderChip(t))}
+                {tagFilter.length > 1 && (
                   <button
-                    key={tag.id}
                     type="button"
-                    onClick={() => toggleTagFilter(String(tag.id))}
-                    className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${
-                      tagFilter.includes(String(tag.id))
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-background text-muted-foreground border-border hover:border-primary'
-                    }`}
+                    onClick={() => setTagFilterMode(tagFilterMode === 'or' ? 'and' : 'or')}
+                    className="px-2 py-0.5 text-xs rounded-full border font-medium transition-colors bg-secondary text-secondary-foreground border-secondary hover:bg-secondary/80"
+                    title={tagFilterMode === 'or' ? 'Showing records with ANY selected tag' : 'Showing records with ALL selected tags'}
                   >
-                    {tag.name}
+                    {tagFilterMode.toUpperCase()}
                   </button>
-                ))}
-              {tagFilter.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => setTagFilterMode(tagFilterMode === 'or' ? 'and' : 'or')}
-                  className="px-2 py-0.5 text-xs rounded-full border font-medium transition-colors bg-secondary text-secondary-foreground border-secondary hover:bg-secondary/80"
-                  title={tagFilterMode === 'or' ? 'Showing records with ANY selected tag' : 'Showing records with ALL selected tags'}
-                >
-                  {tagFilterMode.toUpperCase()}
-                </button>
-              )}
-              {tagFilter.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setTagFilter([])}
-                  className="text-xs text-muted-foreground hover:text-foreground underline"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-          )}
+                )}
+                {tagFilter.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setTagFilter([])}
+                    className="text-xs text-muted-foreground hover:text-foreground underline"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Batch action bar */}
           {checkedIds.size > 0 && (

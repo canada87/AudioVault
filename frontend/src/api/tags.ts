@@ -1,6 +1,8 @@
 import type { Tag } from './records';
 
 export interface TagWithCount extends Tag {
+  parent_id: number | null;
+  parent_name: string | null;
   record_count: number;
 }
 
@@ -22,20 +24,25 @@ export async function fetchTags(): Promise<TagWithCount[]> {
   return handleResponse<TagWithCount[]>(res);
 }
 
-export async function createTag(name: string): Promise<TagWithCount> {
+export async function createTag(name: string, parentId: number | null = null): Promise<TagWithCount> {
   const res = await fetch(`${BASE_URL}/tags`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name, parent_id: parentId }),
   });
   return handleResponse<TagWithCount>(res);
 }
 
-export async function patchTag(id: number, name: string): Promise<Tag> {
+export interface PatchTagBody {
+  name?: string;
+  parent_id?: number | null;
+}
+
+export async function patchTag(id: number, body: PatchTagBody): Promise<Tag> {
   const res = await fetch(`${BASE_URL}/tags/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name }),
+    body: JSON.stringify(body),
   });
   return handleResponse<Tag>(res);
 }

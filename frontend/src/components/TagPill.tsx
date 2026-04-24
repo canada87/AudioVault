@@ -9,11 +9,19 @@ interface TagPillProps {
 }
 
 export default function TagPill({ tag, onRemove, className = '' }: TagPillProps): React.ReactElement {
+  const hasParent = tag.parent_id != null && tag.parent_name;
   return (
     <span
       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20 ${className}`}
+      title={hasParent ? `${tag.parent_name} › ${tag.name}` : tag.name}
     >
-      {tag.name}
+      {hasParent && (
+        <>
+          <span className="text-primary/60">{tag.parent_name}</span>
+          <span className="text-primary/40">›</span>
+        </>
+      )}
+      <span>{tag.name}</span>
       {onRemove && (
         <button
           type="button"

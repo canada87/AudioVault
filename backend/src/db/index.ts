@@ -40,7 +40,8 @@ sqlite.exec(`
 
   CREATE TABLE IF NOT EXISTS tags (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT UNIQUE NOT NULL
+    name TEXT UNIQUE NOT NULL,
+    parent_id INTEGER REFERENCES tags(id) ON DELETE SET NULL
   );
 
   CREATE TABLE IF NOT EXISTS record_tags (
@@ -69,6 +70,13 @@ sqlite.exec(`
     value TEXT NOT NULL
   );
 `);
+
+// Idempotent column additions for existing databases
+try {
+  sqlite.exec(`ALTER TABLE tags ADD COLUMN parent_id INTEGER REFERENCES tags(id) ON DELETE SET NULL`);
+} catch (_e) {
+  // Column already exists
+}
 
 // Create FTS5 virtual table for full-text search
 try {

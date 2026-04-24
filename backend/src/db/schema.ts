@@ -1,4 +1,4 @@
-import { sqliteTable, integer, text, primaryKey } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, integer, text, primaryKey, type AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 export const records = sqliteTable('records', {
@@ -30,6 +30,7 @@ export const records = sqliteTable('records', {
 export const tags = sqliteTable('tags', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   name: text('name').unique().notNull(),
+  parent_id: integer('parent_id').references((): AnySQLiteColumn => tags.id, { onDelete: 'set null' }),
 });
 
 export const recordTags = sqliteTable(
