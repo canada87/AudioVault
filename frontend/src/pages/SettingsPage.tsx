@@ -24,16 +24,10 @@ type EditableKey =
 const EDITABLE_KEYS: EditableKey[] = [
   { key: 'AUDIO_DIR', label: 'Audio Directory', type: 'text', help: 'Path to the folder containing audio/video files' },
   {
-    key: 'STT_POLL_INTERVAL_SECONDS',
-    label: 'STT Poll Interval (seconds)',
+    key: 'STT_TIMEOUT_SECONDS',
+    label: 'STT Timeout (seconds)',
     type: 'number',
-    help: 'How often to check transcription progress',
-  },
-  {
-    key: 'STT_POLL_TIMEOUT_SECONDS',
-    label: 'STT Poll Timeout (seconds)',
-    type: 'number',
-    help: 'Max wait time before transcription is considered failed',
+    help: 'Max time to wait for a transcription response (default: 600)',
   },
   { key: 'LLM_DAILY_LIMIT', label: 'LLM Daily Limit', type: 'number', help: 'Max LLM calls per day' },
   {

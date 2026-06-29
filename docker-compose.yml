@@ -17,9 +17,7 @@ services:
       - DB_PATH=/app/data/audiovault.db
       - AUDIO_DIR=/recordings
       - STT_API_URL=${STT_API_URL:-}
-      - STT_MODEL=${STT_MODEL:-istupakov/parakeet-tdt-0.6b-v3-onnx}
-      - STT_POLL_INTERVAL_SECONDS=${STT_POLL_INTERVAL_SECONDS:-3}
-      - STT_POLL_TIMEOUT_SECONDS=${STT_POLL_TIMEOUT_SECONDS:-300}
+      - STT_TIMEOUT_SECONDS=${STT_TIMEOUT_SECONDS:-600}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash}
       - LLM_DAILY_LIMIT=${LLM_DAILY_LIMIT:-5}

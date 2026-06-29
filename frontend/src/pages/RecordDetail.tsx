@@ -322,27 +322,12 @@ export default function RecordDetail({ recordId, onClose }: RecordDetailProps): 
           <div>
             {record.status === 'transcribing' && (
               <div className="mb-3 p-3 bg-muted/50 rounded-md space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-2 text-muted-foreground">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    Transcribing...
-                  </span>
-                  {record.transcription_progress ? (
-                    <span className="text-foreground font-medium">
-                      {record.transcription_progress.percent}%
-                      <span className="text-xs text-muted-foreground ml-1">
-                        (chunk {record.transcription_progress.currentChunk}/{record.transcription_progress.totalChunks})
-                      </span>
-                    </span>
-                  ) : (
-                    <span className="text-muted-foreground text-xs">Uploading...</span>
-                  )}
-                </div>
+                <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Transcribing...
+                </span>
                 <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
-                  <div
-                    className="bg-blue-600 h-full rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${record.transcription_progress?.percent ?? 0}%` }}
-                  />
+                  <div className="h-full w-1/3 bg-blue-600 rounded-full animate-indeterminate" />
                 </div>
               </div>
             )}
