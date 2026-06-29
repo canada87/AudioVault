@@ -18,6 +18,7 @@ services:
       - AUDIO_DIR=/recordings
       - STT_API_URL=${STT_API_URL:-}
       - STT_TIMEOUT_SECONDS=${STT_TIMEOUT_SECONDS:-600}
+      - STT_CHUNK_MINUTES=${STT_CHUNK_MINUTES:-5}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash}
       - LLM_DAILY_LIMIT=${LLM_DAILY_LIMIT:-5}

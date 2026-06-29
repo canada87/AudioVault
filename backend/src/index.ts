@@ -29,6 +29,7 @@ const envSchema = z.object({
   AUDIO_DIR: z.string().optional(),
   STT_API_URL: z.string().optional(),
   STT_TIMEOUT_SECONDS: z.string().default('600'),
+  STT_CHUNK_MINUTES: z.string().default('5'),
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_MODEL: z.string().default('gemini-2.5-flash'),
   LLM_PROVIDER: z.enum(['gemini', 'openai']).default('gemini'),

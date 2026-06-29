@@ -24,10 +24,16 @@ type EditableKey =
 const EDITABLE_KEYS: EditableKey[] = [
   { key: 'AUDIO_DIR', label: 'Audio Directory', type: 'text', help: 'Path to the folder containing audio/video files' },
   {
+    key: 'STT_CHUNK_MINUTES',
+    label: 'STT Chunk Size (minutes)',
+    type: 'number',
+    help: 'Audio is split into chunks of this length before transcription (default: 5)',
+  },
+  {
     key: 'STT_TIMEOUT_SECONDS',
     label: 'STT Timeout (seconds)',
     type: 'number',
-    help: 'Max time to wait for a transcription response (default: 600)',
+    help: 'Max time to wait per chunk transcription response (default: 600)',
   },
   { key: 'LLM_DAILY_LIMIT', label: 'LLM Daily Limit', type: 'number', help: 'Max LLM calls per day' },
   {
