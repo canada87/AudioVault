@@ -122,7 +122,8 @@ export async function transcribeAudio(filePath: string): Promise<string> {
         parts.push(text.trim());
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        throw new Error(`Chunk ${i + 1}/${numChunks} failed: ${msg}`);
+        const cause = err instanceof Error && err.cause instanceof Error ? ` — cause: ${err.cause.message}` : '';
+        throw new Error(`Chunk ${i + 1}/${numChunks} failed: ${msg}${cause}`);
       }
       currentProgress = {
         currentChunk: i + 1,
