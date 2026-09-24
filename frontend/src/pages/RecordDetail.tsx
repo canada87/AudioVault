@@ -183,18 +183,16 @@ export default function RecordDetail({ recordId, onClose }: RecordDetailProps): 
     wavesurferRef.current?.playPause();
   };
 
-  const handleAddTag = async (tagId: number): Promise<void> => {
+  const handleAddTag = (tagId: number): void => {
     if (!record) return;
     const currentIds = record.tags.map((t) => t.id);
     if (currentIds.includes(tagId)) return;
-    try {
-      await tagsMutation.mutateAsync([...currentIds, tagId]);
-      setTagSearch('');
-      setShowTagDropdown(false);
-      setHighlightedTagIndex(-1);
-    } catch (_e) {
-      // Error is handled by react-query's onError / error state
-    }
+    // Clear the field right away instead of waiting on the network round-trip,
+    // so the next tag can be typed immediately.
+    setTagSearch('');
+    setShowTagDropdown(false);
+    setHighlightedTagIndex(-1);
+    tagsMutation.mutate([...currentIds, tagId]);
   };
 
   const handleRemoveTag = async (tagId: number): Promise<void> => {
@@ -215,7 +213,7 @@ export default function RecordDetail({ recordId, onClose }: RecordDetailProps): 
     if (!tagSearch.trim()) return;
     try {
       const newTag = await createTagMutation.mutateAsync(tagSearch.trim());
-      await handleAddTag(newTag.id);
+      handleAddTag(newTag.id);
     } catch (_e) {
       // Error is handled by react-query's onError / error state
     }
@@ -248,11 +246,10 @@ export default function RecordDetail({ recordId, onClose }: RecordDetailProps): 
       if (highlightedTagIndex < 0) return;
       e.preventDefault();
       if (highlightedTagIndex < filteredTags.length) {
-        void handleAddTag(filteredTags[highlightedTagIndex].id);
+        handleAddTag(filteredTags[highlightedTagIndex].id);
       } else {
         void handleCreateAndAddTag();
       }
-      setHighlightedTagIndex(-1);
     } else if (e.key === 'Escape') {
       setShowTagDropdown(false);
       setHighlightedTagIndex(-1);
@@ -485,7 +482,7 @@ export default function RecordDetail({ recordId, onClose }: RecordDetailProps): 
                   <button
                     key={tag.id}
                     type="button"
-                    onMouseDown={() => void handleAddTag(tag.id)}
+                    onMouseDown={() => handleAddTag(tag.id)}
                     onMouseEnter={() => setHighlightedTagIndex(index)}
                     className={`w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-1 ${
                       index === highlightedTagIndex ? 'bg-accent' : 'hover:bg-accent'
