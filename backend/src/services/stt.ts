@@ -1,5 +1,6 @@
 import { spawn } from 'child_process';
 import https from 'https';
+import type { FastifyBaseLogger } from 'fastify';
 
 export interface TranscriptionProgress {
   currentChunk: number;
@@ -91,15 +92,15 @@ async function transcribeChunk(baseUrl: string, wavBuffer: Buffer, timeoutMs: nu
     }
 
     const data = (await resp.json()) as { text?: string };
-    const text = data.text ?? '';
-    if (!text) throw new Error('Parakeet: response OK but text field absent or empty');
-    return text;
+    // Parakeet returns an OK response with an absent/empty text field for
+    // silent chunks — treat that as "no speech", not a failure.
+    return data.text ?? '';
   } finally {
     clearTimeout(timer);
   }
 }
 
-export async function transcribeAudio(filePath: string): Promise<string> {
+export async function transcribeAudio(filePath: string, logger?: FastifyBaseLogger): Promise<string> {
   const apiUrl = process.env['STT_API_URL'];
   if (!apiUrl) throw new Error('STT_API_URL is not configured');
 
@@ -119,6 +120,9 @@ export async function transcribeAudio(filePath: string): Promise<string> {
       const wavBuffer = await extractChunkAsWav(filePath, startSec, chunkSec);
       try {
         const text = await transcribeChunk(baseUrl, wavBuffer, timeoutMs);
+        if (!text) {
+          logger?.warn({ chunk: i + 1, totalChunks: numChunks }, 'Chunk returned no speech (likely silence), skipping');
+        }
         parts.push(text.trim());
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);

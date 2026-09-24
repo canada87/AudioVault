@@ -122,7 +122,7 @@ export async function processTranscription(
     .where(eq(records.id, recordId));
 
   try {
-    const transcription = await transcribeAudio(filePath);
+    const transcription = await transcribeAudio(filePath, logger);
 
     await db
       .update(records)
