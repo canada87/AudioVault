@@ -489,7 +489,10 @@ export default function ListView(): React.ReactElement {
                         {format(new Date(record.recorded_at * 1000), 'MMM d, yyyy HH:mm')}
                       </td>
                       <td className="p-3">
-                        <span className="font-medium text-foreground truncate block max-w-xs">
+                        <span
+                          className="font-medium text-foreground truncate block max-w-xs"
+                          title={record.display_name ?? record.original_name}
+                        >
                           {record.display_name ?? record.original_name}
                         </span>
                       </td>
