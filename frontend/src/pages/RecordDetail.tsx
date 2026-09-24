@@ -27,13 +27,14 @@ import {
   getAudioUrl,
   getExportUrl,
 } from '../api/records';
-import type { AudioRecord } from '../api/records';
+import type { AudioRecord, Tag } from '../api/records';
 import { fetchTags, createTag } from '../api/tags';
 import type { TagWithCount } from '../api/tags';
 import StatusBadge from '../components/StatusBadge';
 import TagPill from '../components/TagPill';
 import DurationDisplay from '../components/DurationDisplay';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { useAppStore } from '../store/useAppStore';
 
 interface RecordDetailProps {
   recordId: number;
@@ -44,6 +45,7 @@ type TabId = 'transcription' | 'summary' | 'info';
 
 export default function RecordDetail({ recordId, onClose }: RecordDetailProps): React.ReactElement {
   const queryClient = useQueryClient();
+  const setTagFilter = useAppStore((s) => s.setTagFilter);
   const waveformRef = useRef<HTMLDivElement>(null);
   const wavesurferRef = useRef<WaveSurfer | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -201,6 +203,10 @@ export default function RecordDetail({ recordId, onClose }: RecordDetailProps): 
     } catch (_e) {
       // Error is handled by react-query's onError / error state
     }
+  };
+
+  const handleFilterByTag = (tag: Tag): void => {
+    setTagFilter([String(tag.id)]);
   };
 
   const handleCreateAndAddTag = async (): Promise<void> => {
@@ -419,7 +425,12 @@ export default function RecordDetail({ recordId, onClose }: RecordDetailProps): 
           </div>
           <div className="flex flex-wrap gap-1.5">
             {record.tags.map((tag) => (
-              <TagPill key={tag.id} tag={tag} onRemove={(id) => void handleRemoveTag(id)} />
+              <TagPill
+                key={tag.id}
+                tag={tag}
+                onRemove={(id) => void handleRemoveTag(id)}
+                onClick={handleFilterByTag}
+              />
             ))}
           </div>
           {/* Tag autocomplete */}
