@@ -259,11 +259,14 @@ export async function registerRecordRoutes(app: FastifyInstance): Promise<void> 
       }
 
       if (tagIds !== undefined) {
-        // Replace all tags in a transaction to prevent partial state
-        await db.transaction(async (tx) => {
-          await tx.delete(recordTags).where(eq(recordTags.record_id, id));
+        // Replace all tags in a transaction to prevent partial state.
+        // better-sqlite3's transaction wrapper requires a synchronous callback.
+        db.transaction((tx) => {
+          tx.delete(recordTags).where(eq(recordTags.record_id, id)).run();
           if (tagIds.length > 0) {
-            await tx.insert(recordTags).values(tagIds.map((tid) => ({ record_id: id, tag_id: tid })));
+            tx.insert(recordTags)
+              .values(tagIds.map((tid) => ({ record_id: id, tag_id: tid })))
+              .run();
           }
         });
         // Update updated_at after tag change
