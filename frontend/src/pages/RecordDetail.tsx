@@ -53,6 +53,7 @@ export default function RecordDetail({ recordId, onClose }: RecordDetailProps): 
   const [suffix, setSuffix] = useState('');
   const [tagSearch, setTagSearch] = useState('');
   const [showTagDropdown, setShowTagDropdown] = useState(false);
+  const [highlightedTagIndex, setHighlightedTagIndex] = useState(-1);
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
     title: string;
@@ -190,6 +191,7 @@ export default function RecordDetail({ recordId, onClose }: RecordDetailProps): 
       await tagsMutation.mutateAsync([...currentIds, tagId]);
       setTagSearch('');
       setShowTagDropdown(false);
+      setHighlightedTagIndex(-1);
     } catch (_e) {
       // Error is handled by react-query's onError / error state
     }
@@ -228,6 +230,34 @@ export default function RecordDetail({ recordId, onClose }: RecordDetailProps): 
   const showCreateOption =
     tagSearch.trim() &&
     !allTags.some((t) => t.name.toLowerCase() === tagSearch.toLowerCase());
+
+  // Combined list the highlight index moves through: existing tag matches, then "create new".
+  const tagOptionCount = filteredTags.length + (showCreateOption ? 1 : 0);
+
+  const handleTagInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
+    if (tagOptionCount === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setShowTagDropdown(true);
+      setHighlightedTagIndex((i) => Math.min(i + 1, tagOptionCount - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedTagIndex((i) => Math.max(i - 1, 0));
+    } else if (e.key === 'Enter') {
+      if (highlightedTagIndex < 0) return;
+      e.preventDefault();
+      if (highlightedTagIndex < filteredTags.length) {
+        void handleAddTag(filteredTags[highlightedTagIndex].id);
+      } else {
+        void handleCreateAndAddTag();
+      }
+      setHighlightedTagIndex(-1);
+    } else if (e.key === 'Escape') {
+      setShowTagDropdown(false);
+      setHighlightedTagIndex(-1);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -441,20 +471,25 @@ export default function RecordDetail({ recordId, onClose }: RecordDetailProps): 
               onChange={(e) => {
                 setTagSearch(e.target.value);
                 setShowTagDropdown(true);
+                setHighlightedTagIndex(-1);
               }}
               onFocus={() => setShowTagDropdown(true)}
               onBlur={() => setTimeout(() => setShowTagDropdown(false), 200)}
+              onKeyDown={handleTagInputKeyDown}
               placeholder="Add tag..."
               className="w-full px-3 py-1.5 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
             />
             {showTagDropdown && (filteredTags.length > 0 || showCreateOption) && (
               <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg z-10 max-h-48 overflow-y-auto">
-                {filteredTags.map((tag) => (
+                {filteredTags.map((tag, index) => (
                   <button
                     key={tag.id}
                     type="button"
                     onMouseDown={() => void handleAddTag(tag.id)}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center gap-1"
+                    onMouseEnter={() => setHighlightedTagIndex(index)}
+                    className={`w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-1 ${
+                      index === highlightedTagIndex ? 'bg-accent' : 'hover:bg-accent'
+                    }`}
                   >
                     {tag.parent_id != null && tag.parent_name && (
                       <>
@@ -469,7 +504,10 @@ export default function RecordDetail({ recordId, onClose }: RecordDetailProps): 
                   <button
                     type="button"
                     onMouseDown={() => void handleCreateAndAddTag()}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors text-primary font-medium"
+                    onMouseEnter={() => setHighlightedTagIndex(filteredTags.length)}
+                    className={`w-full text-left px-3 py-2 text-sm transition-colors text-primary font-medium ${
+                      filteredTags.length === highlightedTagIndex ? 'bg-accent' : 'hover:bg-accent'
+                    }`}
                   >
                     + Create "{tagSearch}"
                   </button>
