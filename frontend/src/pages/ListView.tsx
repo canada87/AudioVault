@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { Search, ChevronUp, ChevronDown, Filter, Loader2, X, Play, Volume2, FolderSearch } from 'lucide-react';
+import { Search, ChevronUp, ChevronDown, ChevronRight, Filter, Loader2, X, Play, Volume2, FolderSearch } from 'lucide-react';
 import { fetchRecords, triggerTranscribe, scanAudioDirectory } from '../api/records';
 import { fetchTags } from '../api/tags';
 import type { AudioRecord } from '../api/records';
@@ -52,6 +52,7 @@ export default function ListView(): React.ReactElement {
   const [scanning, setScanning] = useState(false);
   const [scanResult, setScanResult] = useState<{ added: number; scanned: number } | null>(null);
   const [tagFilterSearch, setTagFilterSearch] = useState('');
+  const [expandedTagRoots, setExpandedTagRoots] = useState<Set<number>>(new Set());
 
   // Debounce search
   useEffect(() => {
@@ -108,6 +109,15 @@ export default function ListView(): React.ReactElement {
         ? tagFilter.filter((t) => t !== tagId)
         : [...tagFilter, tagId],
     );
+  };
+
+  const toggleTagRootExpanded = (rootId: number): void => {
+    setExpandedTagRoots((prev) => {
+      const next = new Set(prev);
+      if (next.has(rootId)) next.delete(rootId);
+      else next.add(rootId);
+      return next;
+    });
   };
 
   const renderSortIcon = (col: string): React.ReactElement => {
@@ -299,10 +309,31 @@ export default function ListView(): React.ReactElement {
               const rootSelected = tagFilter.includes(String(root.id));
               const rootVisible = matches(root.name) || rootSelected || kidChips.length > 0;
               if (!rootVisible) return null;
+
+              const hasChildren = children.length > 0;
+              // Auto-expand while searching, so matching sub-tags stay visible.
+              const isExpanded = hasChildren && (expandedTagRoots.has(root.id) || q !== '');
+              const selectedChildCount = children.filter((c) => tagFilter.includes(String(c.id))).length;
+
               return (
                 <div key={root.id} className="flex flex-wrap items-center gap-1.5">
+                  {hasChildren && (
+                    <button
+                      type="button"
+                      onClick={() => toggleTagRootExpanded(root.id)}
+                      className="text-muted-foreground hover:text-foreground shrink-0"
+                      title={isExpanded ? `Collapse ${root.name} sub-tags` : `Expand ${root.name} sub-tags`}
+                    >
+                      {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                    </button>
+                  )}
                   {renderChip(root)}
-                  {kidChips.length > 0 && (
+                  {hasChildren && !isExpanded && selectedChildCount > 0 && (
+                    <span className="px-2 py-0.5 text-xs rounded-full bg-secondary text-secondary-foreground">
+                      {selectedChildCount} selected
+                    </span>
+                  )}
+                  {hasChildren && isExpanded && kidChips.length > 0 && (
                     <>
                       <span className="text-xs text-muted-foreground/60 mx-0.5">›</span>
                       {kidChips}
