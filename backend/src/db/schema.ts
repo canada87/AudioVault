@@ -72,6 +72,57 @@ export const settings = sqliteTable('settings', {
   value: text('value').notNull(),
 });
 
+export const projects = sqliteTable('projects', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  title: text('title').notNull(),
+  tag_mode: text('tag_mode', { enum: ['or', 'and'] }).default('or').notNull(),
+  report: text('report'),
+  report_period_start: integer('report_period_start'),
+  report_period_end: integer('report_period_end'),
+  last_generated_at: integer('last_generated_at'),
+  last_error: text('last_error'),
+  created_at: integer('created_at')
+    .default(sql`(unixepoch())`)
+    .notNull(),
+  updated_at: integer('updated_at')
+    .default(sql`(unixepoch())`)
+    .notNull(),
+});
+
+export const projectTags = sqliteTable(
+  'project_tags',
+  {
+    project_id: integer('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    tag_id: integer('tag_id')
+      .notNull()
+      .references(() => tags.id, { onDelete: 'cascade' }),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.project_id, t.tag_id] }),
+  }),
+);
+
+export const projectRecords = sqliteTable(
+  'project_records',
+  {
+    project_id: integer('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    record_id: integer('record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'cascade' }),
+    state: text('state', { enum: ['included', 'excluded'] }).notNull(),
+    updated_at: integer('updated_at')
+      .default(sql`(unixepoch())`)
+      .notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.project_id, t.record_id] }),
+  }),
+);
+
 export type Record = typeof records.$inferSelect;
 export type NewRecord = typeof records.$inferInsert;
 export type Tag = typeof tags.$inferSelect;
@@ -80,5 +131,11 @@ export type RecordTag = typeof recordTags.$inferSelect;
 export type ProcessingLog = typeof processingLog.$inferSelect;
 export type DailyLimit = typeof dailyLimits.$inferSelect;
 export type Setting = typeof settings.$inferSelect;
+export type Project = typeof projects.$inferSelect;
+export type NewProject = typeof projects.$inferInsert;
+export type ProjectTag = typeof projectTags.$inferSelect;
+export type ProjectRecord = typeof projectRecords.$inferSelect;
 
 export type RecordStatus = 'pending' | 'transcribing' | 'transcribed' | 'processing' | 'done' | 'error';
+export type ProjectTagMode = 'or' | 'and';
+export type ProjectRecordState = 'included' | 'excluded';

@@ -15,6 +15,13 @@
       "when": 1808500000000,
       "tag": "0001_add_tag_parent",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1790248983201,
+      "tag": "0002_misty_the_leader",
+      "breakpoints": true
     }
   ]
 }

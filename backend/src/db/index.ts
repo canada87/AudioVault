@@ -69,6 +69,33 @@ sqlite.exec(`
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS projects (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    tag_mode TEXT NOT NULL DEFAULT 'or',
+    report TEXT,
+    report_period_start INTEGER,
+    report_period_end INTEGER,
+    last_generated_at INTEGER,
+    last_error TEXT,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+  );
+
+  CREATE TABLE IF NOT EXISTS project_tags (
+    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    PRIMARY KEY (project_id, tag_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS project_records (
+    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    record_id INTEGER NOT NULL REFERENCES records(id) ON DELETE CASCADE,
+    state TEXT NOT NULL,
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    PRIMARY KEY (project_id, record_id)
+  );
 `);
 
 // Idempotent column additions for existing databases

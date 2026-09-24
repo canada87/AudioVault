@@ -101,16 +101,73 @@ async function generateWithOpenAI(prompt: string): Promise<string> {
   return completion.choices[0]?.message?.content ?? '';
 }
 
-export async function generateSummary(transcription: string): Promise<LLMResult> {
+async function generateRaw(prompt: string): Promise<string> {
   const provider = (process.env['LLM_PROVIDER'] ?? 'gemini').toLowerCase();
-  const prompt = buildPrompt(transcription);
-
-  let rawText: string;
   if (provider === 'openai') {
-    rawText = await generateWithOpenAI(prompt);
-  } else {
-    rawText = await generateWithGemini(prompt);
+    return generateWithOpenAI(prompt);
+  }
+  return generateWithGemini(prompt);
+}
+
+export async function generateSummary(transcription: string): Promise<LLMResult> {
+  const prompt = buildPrompt(transcription);
+  const rawText = await generateRaw(prompt);
+  return parseResponse(rawText);
+}
+
+export interface ProjectMeeting {
+  date: string;
+  title: string;
+  summary: string;
+}
+
+const PROJECT_REPORT_INSTRUCTIONS = `Sei un assistente che mantiene un report di sintesi per un progetto composto da più riunioni.
+Produci un report in Markdown con esattamente queste sezioni, in questo ordine:
+
+## Fatto
+Attività concluse emerse dalle riunioni.
+
+## In corso
+Attività attualmente in corso.
+
+## Da fare
+Attività pianificate ma non ancora iniziate.
+
+## Punti da investigare
+Domande aperte o argomenti che richiedono approfondimento.
+
+## Da tenere a mente
+Decisioni, vincoli o informazioni rilevanti da non perdere.
+
+Scrivi elenchi puntati concisi. Se una sezione non ha contenuti, scrivi "Nessuno".`;
+
+function buildProjectPrompt(existingReport: string | null, meetings: ProjectMeeting[]): string {
+  const meetingsBlock = meetings
+    .map((m) => `### ${m.date} — ${m.title}\n${m.summary}`)
+    .join('\n\n');
+
+  if (existingReport && existingReport.trim()) {
+    return `${PROJECT_REPORT_INSTRUCTIONS}
+
+Esiste già un report per questo progetto, basato sulle riunioni precedenti. Aggiornalo integrando le nuove riunioni riportate sotto: sposta le attività completate, aggiorna quelle in corso, aggiungi i nuovi punti, e conserva le informazioni ancora valide che non sono contraddette dalle nuove riunioni.
+
+Report attuale:
+${existingReport}
+
+Nuove riunioni:
+${meetingsBlock}`;
   }
 
-  return parseResponse(rawText);
+  return `${PROJECT_REPORT_INSTRUCTIONS}
+
+Riunioni:
+${meetingsBlock}`;
+}
+
+export async function generateProjectReport(
+  existingReport: string | null,
+  meetings: ProjectMeeting[],
+): Promise<string> {
+  const prompt = buildProjectPrompt(existingReport, meetings);
+  return generateRaw(prompt);
 }
