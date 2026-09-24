@@ -16,6 +16,7 @@ interface UpdateProjectBody {
   title?: string;
   tag_ids?: number[];
   tag_mode?: ProjectTagMode;
+  report?: string | null;
 }
 
 interface RegenerateBody {
@@ -149,7 +150,7 @@ export async function registerProjectRoutes(app: FastifyInstance): Promise<void>
         return reply.status(404).send({ error: 'Project not found', statusCode: 404 });
       }
 
-      const { title, tag_ids, tag_mode } = req.body;
+      const { title, tag_ids, tag_mode, report } = req.body;
 
       if (title !== undefined && title.trim().length === 0) {
         return reply.status(400).send({ error: 'Title cannot be empty', statusCode: 400 });
@@ -160,12 +161,16 @@ export async function registerProjectRoutes(app: FastifyInstance): Promise<void>
       if (tag_mode !== undefined && !isValidTagMode(tag_mode)) {
         return reply.status(400).send({ error: "tag_mode must be 'or' or 'and'", statusCode: 400 });
       }
+      if (report !== undefined && report !== null && typeof report !== 'string') {
+        return reply.status(400).send({ error: 'report must be a string or null', statusCode: 400 });
+      }
 
-      const updates: { title?: string; tag_mode?: ProjectTagMode; updated_at: number } = {
+      const updates: { title?: string; tag_mode?: ProjectTagMode; report?: string | null; updated_at: number } = {
         updated_at: Math.floor(Date.now() / 1000),
       };
       if (title !== undefined) updates.title = title.trim();
       if (tag_mode !== undefined) updates.tag_mode = tag_mode;
+      if (report !== undefined) updates.report = report;
 
       await db.update(projects).set(updates).where(eq(projects.id, id));
 

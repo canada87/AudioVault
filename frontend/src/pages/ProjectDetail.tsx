@@ -3,8 +3,8 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
 import { format } from 'date-fns';
-import { ArrowLeft, Loader2, RefreshCw, RotateCcw, Trash2, AlertTriangle } from 'lucide-react';
-import { fetchProject, generateProject, regenerateProject, deleteProject } from '../api/projects';
+import { ArrowLeft, Loader2, RefreshCw, RotateCcw, Trash2, AlertTriangle, Pencil, Check, X } from 'lucide-react';
+import { fetchProject, generateProject, regenerateProject, deleteProject, patchProject } from '../api/projects';
 import type { ProjectRecord } from '../api/projects';
 import ConfirmDialog from '../components/ConfirmDialog';
 
@@ -22,6 +22,8 @@ export default function ProjectDetail(): React.ReactElement {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [isEditingReport, setIsEditingReport] = useState(false);
+  const [editedReport, setEditedReport] = useState('');
 
   const { data: project, isLoading } = useQuery({
     queryKey: ['project', projectId],
@@ -52,6 +54,12 @@ export default function ProjectDetail(): React.ReactElement {
     onError: (e: Error) => setActionError(e.message),
   });
 
+  const editReportMutation = useMutation({
+    mutationFn: (report: string) => patchProject(projectId, { report }),
+    onSuccess: () => { setActionError(null); setIsEditingReport(false); invalidate(); },
+    onError: (e: Error) => setActionError(e.message),
+  });
+
   const allEligible = useMemo<ProjectRecord[]>(() => {
     if (!project) return [];
     return [...project.included, ...project.excluded, ...project.pending].sort(
@@ -75,6 +83,17 @@ export default function ProjectDetail(): React.ReactElement {
       else next.add(recordId);
       return next;
     });
+  };
+
+  const startEditingReport = (): void => {
+    if (!project) return;
+    setEditedReport(project.report ?? '');
+    setIsEditingReport(true);
+  };
+
+  const cancelEditingReport = (): void => {
+    setIsEditingReport(false);
+    setEditedReport('');
   };
 
   if (Number.isNaN(projectId)) {
@@ -165,13 +184,58 @@ export default function ProjectDetail(): React.ReactElement {
 
       {/* Report */}
       <div className="bg-card rounded-lg border border-border p-4">
-        {project.report ? (
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-medium text-muted-foreground">Report</span>
+          {!isEditingReport && (
+            <button
+              type="button"
+              onClick={startEditingReport}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              Edit
+            </button>
+          )}
+        </div>
+
+        {isEditingReport ? (
+          <div className="space-y-3">
+            <textarea
+              value={editedReport}
+              onChange={(e) => setEditedReport(e.target.value)}
+              rows={16}
+              placeholder="Write the report in Markdown..."
+              className="w-full px-3 py-2 text-sm font-mono rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-y"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={cancelEditingReport}
+                disabled={editReportMutation.isPending}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-input bg-background hover:bg-accent disabled:opacity-50 transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => editReportMutation.mutate(editedReport)}
+                disabled={editReportMutation.isPending}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              >
+                {editReportMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                Save
+              </button>
+            </div>
+          </div>
+        ) : project.report ? (
           <div className="prose prose-sm max-w-none text-foreground prose-headings:text-foreground prose-strong:text-foreground prose-li:marker:text-foreground prose-a:text-primary">
             <ReactMarkdown>{project.report}</ReactMarkdown>
           </div>
         ) : (
           <p className="text-sm text-muted-foreground py-6 text-center">
-            No report yet. Click "Update" once there is at least one summarized recording matching this project's tags.
+            No report yet. Click "Update" once there is at least one summarized recording matching this project's tags,
+            or write one manually with "Edit".
           </p>
         )}
       </div>
@@ -203,7 +267,7 @@ export default function ProjectDetail(): React.ReactElement {
             <h3 className="text-base font-semibold text-foreground mb-1">Regenerate report from selection</h3>
             <p className="text-sm text-muted-foreground mb-3">
               Uncheck meetings to leave them out permanently. The report is rebuilt from scratch using only the
-              checked meetings.
+              checked meetings{project.report ? ' — any manual edits to the current report will be lost' : ''}.
             </p>
             <div className="flex-1 overflow-auto border border-border rounded-md divide-y divide-border">
               {allEligible.map((r) => (

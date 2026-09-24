@@ -85,7 +85,7 @@ export async function createProject(body: {
 
 export async function patchProject(
   id: number,
-  body: { title?: string; tag_ids?: number[]; tag_mode?: ProjectTagMode },
+  body: { title?: string; tag_ids?: number[]; tag_mode?: ProjectTagMode; report?: string | null },
 ): Promise<ProjectDetail> {
   const res = await fetch(`${BASE_URL}/projects/${id}`, {
     method: 'PATCH',
