@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { Search, ChevronUp, ChevronDown, ChevronRight, Filter, Loader2, X, Play, Volume2, FolderSearch } from 'lucide-react';
+import { Search, ChevronUp, ChevronDown, ChevronRight, Filter, Loader2, X, Play, Volume2, FolderSearch, Calendar } from 'lucide-react';
 import { fetchRecords, triggerTranscribe, scanAudioDirectory } from '../api/records';
 import { fetchTags } from '../api/tags';
 import type { AudioRecord } from '../api/records';
@@ -30,6 +30,8 @@ export default function ListView(): React.ReactElement {
     statusFilter,
     tagFilter,
     tagFilterMode,
+    dateFrom,
+    dateTo,
     sortBy,
     sortOrder,
     selectedRecordId,
@@ -38,6 +40,8 @@ export default function ListView(): React.ReactElement {
     setStatusFilter,
     setTagFilter,
     setTagFilterMode,
+    setDateFrom,
+    setDateTo,
     setSortBy,
     setSortOrder,
     openSideSheet,
@@ -64,10 +68,10 @@ export default function ListView(): React.ReactElement {
   useEffect(() => {
     setPage(1);
     setCheckedIds(new Set());
-  }, [debouncedSearch, statusFilter, tagFilter, sortBy, sortOrder]);
+  }, [debouncedSearch, statusFilter, tagFilter, dateFrom, dateTo, sortBy, sortOrder]);
 
   const { data, isLoading, isFetching } = useQuery({
-    queryKey: ['records', page, debouncedSearch, statusFilter, tagFilter.join(','), tagFilterMode, sortBy, sortOrder],
+    queryKey: ['records', page, debouncedSearch, statusFilter, tagFilter.join(','), tagFilterMode, dateFrom, dateTo, sortBy, sortOrder],
     queryFn: () =>
       fetchRecords({
         page,
@@ -76,6 +80,10 @@ export default function ListView(): React.ReactElement {
         status: statusFilter || undefined,
         tags: tagFilter.length > 0 ? tagFilter.join(',') : undefined,
         tagMode: tagFilter.length > 1 ? tagFilterMode : undefined,
+        // dateTo is a plain YYYY-MM-DD; push it to end-of-day (UTC, matching dateFrom's
+        // UTC-midnight parsing) so records made anywhere during that day are included.
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo ? `${dateTo}T23:59:59.999Z` : undefined,
         sortBy,
         sortOrder,
       }),
@@ -245,6 +253,40 @@ export default function ListView(): React.ReactElement {
               )}
               Scan
             </button>
+          </div>
+
+          {/* Date range filter */}
+          <div className="flex items-center gap-2">
+            <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+            <input
+              type="date"
+              value={dateFrom}
+              max={dateTo || undefined}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="px-2 py-1.5 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              aria-label="From date"
+            />
+            <span className="text-xs text-muted-foreground">to</span>
+            <input
+              type="date"
+              value={dateTo}
+              min={dateFrom || undefined}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="px-2 py-1.5 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              aria-label="To date"
+            />
+            {(dateFrom || dateTo) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDateFrom('');
+                  setDateTo('');
+                }}
+                className="text-xs text-muted-foreground hover:text-foreground underline"
+              >
+                Clear dates
+              </button>
+            )}
           </div>
 
           {/* Scan result feedback */}
