@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
@@ -24,6 +24,7 @@ export default function ProjectDetail(): React.ReactElement {
   const [actionError, setActionError] = useState<string | null>(null);
   const [isEditingReport, setIsEditingReport] = useState(false);
   const [editedReport, setEditedReport] = useState('');
+  const [notesDraft, setNotesDraft] = useState<string | null>(null);
 
   const { data: project, isLoading } = useQuery({
     queryKey: ['project', projectId],
@@ -60,6 +61,20 @@ export default function ProjectDetail(): React.ReactElement {
     onError: (e: Error) => setActionError(e.message),
   });
 
+  const notesMutation = useMutation({
+    mutationFn: (notes: string) => patchProject(projectId, { notes }),
+    onSuccess: () => { setActionError(null); invalidate(); },
+    onError: (e: Error) => setActionError(e.message),
+  });
+
+  // Initialize the notes draft once from the server, then leave it to the user —
+  // later refetches (triggered by report generate/regenerate) must not clobber unsaved edits.
+  useEffect(() => {
+    if (project && notesDraft === null) {
+      setNotesDraft(project.notes ?? '');
+    }
+  }, [project, notesDraft]);
+
   const allEligible = useMemo<ProjectRecord[]>(() => {
     if (!project) return [];
     return [...project.included, ...project.excluded, ...project.pending].sort(
@@ -68,6 +83,8 @@ export default function ProjectDetail(): React.ReactElement {
   }, [project]);
 
   const excludedIds = useMemo(() => new Set(project?.excluded.map((r) => r.id) ?? []), [project]);
+
+  const notesDirty = notesDraft !== null && notesDraft !== (project?.notes ?? '');
 
   const openSelector = (): void => {
     if (!project) return;
@@ -109,7 +126,7 @@ export default function ProjectDetail(): React.ReactElement {
   }
 
   return (
-    <div className="p-6 max-w-4xl space-y-6">
+    <div className="p-6 max-w-6xl space-y-6">
       <Link to="/projects" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground w-fit">
         <ArrowLeft className="w-4 h-4" />
         Projects
@@ -182,82 +199,115 @@ export default function ProjectDetail(): React.ReactElement {
         </div>
       </div>
 
-      {/* Report */}
-      <div className="bg-card rounded-lg border border-border p-4">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-medium text-muted-foreground">Report</span>
-          {!isEditingReport && (
-            <button
-              type="button"
-              onClick={startEditingReport}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <Pencil className="w-3.5 h-3.5" />
-              Edit
-            </button>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        <div className="lg:col-span-2 space-y-6">
+          {/* Report */}
+          <div className="bg-card rounded-lg border border-border p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium text-muted-foreground">Report</span>
+              {!isEditingReport && (
+                <button
+                  type="button"
+                  onClick={startEditingReport}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                  Edit
+                </button>
+              )}
+            </div>
+
+            {isEditingReport ? (
+              <div className="space-y-3">
+                <textarea
+                  value={editedReport}
+                  onChange={(e) => setEditedReport(e.target.value)}
+                  rows={16}
+                  placeholder="Write the report in Markdown..."
+                  className="w-full px-3 py-2 text-sm font-mono rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-y"
+                />
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={cancelEditingReport}
+                    disabled={editReportMutation.isPending}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-input bg-background hover:bg-accent disabled:opacity-50 transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => editReportMutation.mutate(editedReport)}
+                    disabled={editReportMutation.isPending}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                  >
+                    {editReportMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                    Save
+                  </button>
+                </div>
+              </div>
+            ) : project.report ? (
+              <div className="prose prose-sm max-w-none text-foreground prose-headings:text-foreground prose-strong:text-foreground prose-li:marker:text-foreground prose-a:text-primary">
+                <ReactMarkdown>{project.report}</ReactMarkdown>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground py-6 text-center">
+                No report yet. Click "Update" once there is at least one summarized recording matching this project's tags,
+                or write one manually with "Edit".
+              </p>
+            )}
+          </div>
+
+          {/* Included meetings */}
+          {project.included.length > 0 && (
+            <div className="bg-card rounded-lg border border-border overflow-hidden">
+              <div className="px-4 py-2 border-b border-border text-xs font-medium text-muted-foreground">
+                {project.included.length} meeting{project.included.length === 1 ? '' : 's'} included in the report
+              </div>
+              <ul className="divide-y divide-border">
+                {[...project.included]
+                  .sort((a, b) => a.recorded_at - b.recorded_at)
+                  .map((r) => (
+                    <li key={r.id} className="flex items-center gap-3 px-4 py-2 text-sm">
+                      <span className="text-muted-foreground whitespace-nowrap">{fmtDate(r.recorded_at)}</span>
+                      <span className="text-foreground truncate">{r.display_name ?? r.original_name}</span>
+                    </li>
+                  ))}
+              </ul>
+            </div>
           )}
         </div>
 
-        {isEditingReport ? (
-          <div className="space-y-3">
-            <textarea
-              value={editedReport}
-              onChange={(e) => setEditedReport(e.target.value)}
-              rows={16}
-              placeholder="Write the report in Markdown..."
-              className="w-full px-3 py-2 text-sm font-mono rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-y"
-            />
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={cancelEditingReport}
-                disabled={editReportMutation.isPending}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-input bg-background hover:bg-accent disabled:opacity-50 transition-colors"
-              >
-                <X className="w-3.5 h-3.5" />
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => editReportMutation.mutate(editedReport)}
-                disabled={editReportMutation.isPending}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
-              >
-                {editReportMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                Save
-              </button>
-            </div>
+        {/* Notes — local to this project, never sent to the LLM */}
+        <div className="lg:col-span-1 bg-card rounded-lg border border-border p-4 lg:sticky lg:top-6">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs font-medium text-muted-foreground">Notes</span>
+            <span className="text-xs text-muted-foreground">{notesDirty ? 'Unsaved' : 'Saved'}</span>
           </div>
-        ) : project.report ? (
-          <div className="prose prose-sm max-w-none text-foreground prose-headings:text-foreground prose-strong:text-foreground prose-li:marker:text-foreground prose-a:text-primary">
-            <ReactMarkdown>{project.report}</ReactMarkdown>
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground py-6 text-center">
-            No report yet. Click "Update" once there is at least one summarized recording matching this project's tags,
-            or write one manually with "Edit".
+          <p className="text-xs text-muted-foreground mb-2">
+            Personal notes — kept with this project, never sent to the LLM.
           </p>
-        )}
-      </div>
-
-      {/* Included meetings */}
-      {project.included.length > 0 && (
-        <div className="bg-card rounded-lg border border-border overflow-hidden">
-          <div className="px-4 py-2 border-b border-border text-xs font-medium text-muted-foreground">
-            {project.included.length} meeting{project.included.length === 1 ? '' : 's'} included in the report
+          <textarea
+            value={notesDraft ?? ''}
+            onChange={(e) => setNotesDraft(e.target.value)}
+            rows={14}
+            placeholder="Anything relevant that isn't in the meetings..."
+            className="w-full px-3 py-2 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-y"
+          />
+          <div className="flex justify-end mt-2">
+            <button
+              type="button"
+              onClick={() => notesDraft !== null && notesMutation.mutate(notesDraft)}
+              disabled={!notesDirty || notesMutation.isPending}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+            >
+              {notesMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+              Save notes
+            </button>
           </div>
-          <ul className="divide-y divide-border">
-            {[...project.included]
-              .sort((a, b) => a.recorded_at - b.recorded_at)
-              .map((r) => (
-                <li key={r.id} className="flex items-center gap-3 px-4 py-2 text-sm">
-                  <span className="text-muted-foreground whitespace-nowrap">{fmtDate(r.recorded_at)}</span>
-                  <span className="text-foreground truncate">{r.display_name ?? r.original_name}</span>
-                </li>
-              ))}
-          </ul>
         </div>
-      )}
+      </div>
 
       {/* Selection modal for "regenerate from scratch" */}
       {showSelector && (

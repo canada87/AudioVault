@@ -75,6 +75,7 @@ sqlite.exec(`
     title TEXT NOT NULL,
     tag_mode TEXT NOT NULL DEFAULT 'or',
     report TEXT,
+    notes TEXT,
     report_period_start INTEGER,
     report_period_end INTEGER,
     last_generated_at INTEGER,
@@ -101,6 +102,12 @@ sqlite.exec(`
 // Idempotent column additions for existing databases
 try {
   sqlite.exec(`ALTER TABLE tags ADD COLUMN parent_id INTEGER REFERENCES tags(id) ON DELETE SET NULL`);
+} catch (_e) {
+  // Column already exists
+}
+
+try {
+  sqlite.exec(`ALTER TABLE projects ADD COLUMN notes TEXT`);
 } catch (_e) {
   // Column already exists
 }

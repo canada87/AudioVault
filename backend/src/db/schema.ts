@@ -77,6 +77,7 @@ export const projects = sqliteTable('projects', {
   title: text('title').notNull(),
   tag_mode: text('tag_mode', { enum: ['or', 'and'] }).default('or').notNull(),
   report: text('report'),
+  notes: text('notes'),
   report_period_start: integer('report_period_start'),
   report_period_end: integer('report_period_end'),
   last_generated_at: integer('last_generated_at'),

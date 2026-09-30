@@ -35,6 +35,7 @@ export interface ProjectDetail {
   title: string;
   tag_mode: ProjectTagMode;
   report: string | null;
+  notes: string | null;
   report_period_start: number | null;
   report_period_end: number | null;
   last_generated_at: number | null;
@@ -85,7 +86,13 @@ export async function createProject(body: {
 
 export async function patchProject(
   id: number,
-  body: { title?: string; tag_ids?: number[]; tag_mode?: ProjectTagMode; report?: string | null },
+  body: {
+    title?: string;
+    tag_ids?: number[];
+    tag_mode?: ProjectTagMode;
+    report?: string | null;
+    notes?: string | null;
+  },
 ): Promise<ProjectDetail> {
   const res = await fetch(`${BASE_URL}/projects/${id}`, {
     method: 'PATCH',
