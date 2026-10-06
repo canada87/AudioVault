@@ -13,6 +13,7 @@ import {
 } from '../services/projects';
 import type { ProjectDetail } from '../services/projects';
 import { TagQueryError } from '../services/tagQuery';
+import { removeProjectDocumentsDir } from '../services/documents';
 
 interface CreateProjectBody {
   title: string;
@@ -209,6 +210,8 @@ export async function registerProjectRoutes(app: FastifyInstance): Promise<void>
     }
 
     await db.delete(projects).where(eq(projects.id, id));
+    // The DB rows cascade, but the uploaded files on disk have to be removed explicitly.
+    await removeProjectDocumentsDir(id);
     return reply.status(204).send();
   });
 

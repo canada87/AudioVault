@@ -115,6 +115,16 @@ sqlite.exec(`
     contact_id INTEGER NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
     PRIMARY KEY (project_id, contact_id)
   );
+
+  CREATE TABLE IF NOT EXISTS project_documents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    original_name TEXT NOT NULL,
+    stored_name TEXT NOT NULL,
+    mime_type TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch())
+  );
 `);
 
 // Idempotent column additions for existing databases

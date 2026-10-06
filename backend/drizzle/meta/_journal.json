@@ -43,6 +43,13 @@
       "when": 1791303533684,
       "tag": "0005_unknown_snowbird",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1791304307934,
+      "tag": "0006_chilly_tempest",
+      "breakpoints": true
     }
   ]
 }

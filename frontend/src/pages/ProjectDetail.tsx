@@ -10,6 +10,7 @@ import { fetchTags } from '../api/tags';
 import ConfirmDialog from '../components/ConfirmDialog';
 import TagQueryBuilder from '../components/TagQueryBuilder';
 import ProjectContactsBox from '../components/ProjectContactsBox';
+import ProjectDocumentsBox from '../components/ProjectDocumentsBox';
 
 function fmtDate(ts: number): string {
   return format(new Date(ts * 1000), 'MMM d, yyyy HH:mm');
@@ -305,6 +306,9 @@ export default function ProjectDetail(): React.ReactElement {
               </p>
             )}
           </div>
+
+          {/* Documents — stored locally, never sent to the LLM */}
+          <ProjectDocumentsBox projectId={projectId} />
 
           {/* Included meetings */}
           {project.included.length > 0 && (

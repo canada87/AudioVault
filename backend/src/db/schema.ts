@@ -159,6 +159,22 @@ export const projectContacts = sqliteTable(
   }),
 );
 
+// Files attached to a project. The bytes live on disk (see services/documents.ts); only metadata is
+// stored here. Like notes and contacts, they are never sent to the LLM.
+export const projectDocuments = sqliteTable('project_documents', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  project_id: integer('project_id')
+    .notNull()
+    .references(() => projects.id, { onDelete: 'cascade' }),
+  original_name: text('original_name').notNull(),
+  stored_name: text('stored_name').notNull(),
+  mime_type: text('mime_type').notNull(),
+  size_bytes: integer('size_bytes').notNull(),
+  created_at: integer('created_at')
+    .default(sql`(unixepoch())`)
+    .notNull(),
+});
+
 export type Record = typeof records.$inferSelect;
 export type NewRecord = typeof records.$inferInsert;
 export type Tag = typeof tags.$inferSelect;
@@ -172,6 +188,7 @@ export type NewProject = typeof projects.$inferInsert;
 export type ProjectTag = typeof projectTags.$inferSelect;
 export type ProjectRecord = typeof projectRecords.$inferSelect;
 export type Contact = typeof contacts.$inferSelect;
+export type ProjectDocument = typeof projectDocuments.$inferSelect;
 
 export type RecordStatus = 'pending' | 'transcribing' | 'transcribed' | 'processing' | 'done' | 'error';
 export type ProjectRecordState = 'included' | 'excluded';
