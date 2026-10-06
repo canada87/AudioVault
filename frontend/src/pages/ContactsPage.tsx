@@ -60,7 +60,7 @@ export default function ContactsPage(): React.ReactElement {
           <h1 className="text-2xl font-bold text-foreground">Contacts</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Everyone you work with and the projects they are linked to. Link contacts to projects from the project page.
-            Contacts are never sent to the LLM.
+            Contacts are never used to generate reports.
           </p>
         </div>
         <button

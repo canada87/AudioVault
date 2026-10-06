@@ -128,7 +128,7 @@ export const projectRecords = sqliteTable(
   }),
 );
 
-// People attached to projects. Never sent to the LLM (like project notes).
+// People attached to projects. Never used to generate reports (like project notes).
 export const contacts = sqliteTable('contacts', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   name: text('name').notNull(),
@@ -160,7 +160,7 @@ export const projectContacts = sqliteTable(
 );
 
 // Files attached to a project. The bytes live on disk (see services/documents.ts); only metadata is
-// stored here. Like notes and contacts, they are never sent to the LLM.
+// stored here. Like notes and contacts, they are never used to generate reports.
 export const projectDocuments = sqliteTable('project_documents', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   project_id: integer('project_id')

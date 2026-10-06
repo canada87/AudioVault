@@ -32,7 +32,8 @@ audiovault/
 ├── backend/              Node.js + Fastify + SQLite + Drizzle ORM
 │   ├── src/
 │   │   ├── db/           Drizzle schema and database client
-│   │   ├── routes/       Fastify route handlers
+│   │   ├── routes/       Fastify route handlers (incl. the /mcp endpoint)
+│   │   ├── mcp/          MCP server: tool definitions, queries, document text extraction
 │   │   ├── scheduler/    Cron-based transcription and summarizer pollers
 │   │   ├── services/     llm.ts, stt.ts, file.ts, limits.ts, logStore.ts
 │   │   ├── watcher.ts    Chokidar file watcher + manual scan
@@ -85,6 +86,7 @@ Edit `backend/.env` with your configuration:
 | `PORT` | Backend server port (default: `3000`) | No |
 | `HOST` | Backend bind address (default: `0.0.0.0`) | No |
 | `DB_PATH` | SQLite database file path (default: `./data/audiovault.db`) | No |
+| `MCP_TOKEN` | Bearer token that enables the MCP endpoint (min 16 chars); see [MCP server](#mcp-server) | No |
 
 > **Switching provider at runtime:** all LLM settings (`LLM_PROVIDER`, `GEMINI_MODEL`, `OPENAI_MODEL`) can be changed from the Settings page without restarting the server.
 
@@ -155,6 +157,53 @@ docker-compose up -d
 ```
 
 The application will be available at [http://localhost:3000](http://localhost:3000).
+
+## MCP server
+
+AudioVault can be queried from Claude (Claude Code, Claude Desktop, ...) through a read-only
+[MCP](https://modelcontextprotocol.io) endpoint served by the same process at `POST /mcp`. It exposes
+recordings (transcripts, summaries, tags), projects (report, notes, recordings, contacts, documents)
+and contacts.
+
+**Enable it** by setting `MCP_TOKEN` (at least 16 random characters, e.g. `openssl rand -hex 32`) and
+restarting. Without it `/mcp` answers `503`. Every request must send `Authorization: Bearer <token>`.
+
+**Connect Claude Code** (use whichever URL reaches the service from that machine — LAN IP, Tailscale IP or
+the HTTPS name behind your reverse proxy; they all hit the same endpoint):
+
+```bash
+claude mcp add --transport http --scope user audiovault https://your-host/mcp   --header "Authorization: Bearer <MCP_TOKEN>"
+```
+
+Claude Desktop only launches local (stdio) servers, so bridge to the URL with `mcp-remote`:
+
+```json
+{
+  "mcpServers": {
+    "audiovault": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://your-host/mcp", "--header", "Authorization:${AUDIOVAULT_AUTH}"],
+      "env": { "AUDIOVAULT_AUTH": "Bearer <MCP_TOKEN>" }
+    }
+  }
+}
+```
+
+The endpoint is stateless and answers with plain JSON (no SSE streams, no sessions), so a reverse proxy
+needs no special configuration beyond forwarding `POST /mcp`.
+
+| Tool | Purpose |
+|---|---|
+| `search_recordings` | Full-text + tag + date + status search; compact rows with snippets |
+| `get_recordings` | Summaries, notes and metadata for up to 10 recordings |
+| `read_transcript` | A transcript slice, or only the passages around a phrase (`query`) |
+| `list_tags` | Tags with parent and recording counts |
+| `list_projects` / `get_project` | Projects; `get_project` returns only the requested sections |
+| `read_document` | Text of a project document (pdf, docx, pptx, xlsx, txt) or an image |
+| `list_contacts` | Contacts and the projects they belong to |
+
+> Everything reachable through this endpoint (transcripts, contacts, documents, notes) is readable by
+> whichever Claude client holds the token. Treat `MCP_TOKEN` like a password.
 
 ## Database
 

@@ -18,7 +18,7 @@ interface ProjectContactsBoxProps {
 
 type AddMode = 'existing' | 'new';
 
-// Contacts of one project. Local to the app: never sent to the LLM.
+// Contacts of one project. Local to the app: never used to generate reports.
 export default function ProjectContactsBox({ projectId }: ProjectContactsBoxProps): React.ReactElement {
   const queryClient = useQueryClient();
   const [adding, setAdding] = useState(false);
@@ -183,7 +183,7 @@ export default function ProjectContactsBox({ projectId }: ProjectContactsBoxProp
         )}
       </div>
       <p className="text-xs text-muted-foreground mb-2">
-        People linked to this project — kept locally, never sent to the LLM.
+        People linked to this project — kept locally, never used to generate reports.
       </p>
 
       {isLoading ? (

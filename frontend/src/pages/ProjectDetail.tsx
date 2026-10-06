@@ -307,7 +307,7 @@ export default function ProjectDetail(): React.ReactElement {
             )}
           </div>
 
-          {/* Documents — stored locally, never sent to the LLM */}
+          {/* Documents — stored locally, never used to generate reports */}
           <ProjectDocumentsBox projectId={projectId} />
 
           {/* Included meetings */}
@@ -330,7 +330,7 @@ export default function ProjectDetail(): React.ReactElement {
           )}
         </div>
 
-        {/* Contacts and notes — local to this project, never sent to the LLM */}
+        {/* Contacts and notes — local to this project, never used to generate reports */}
         <div className="lg:col-span-1 space-y-6 lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-auto">
           <ProjectContactsBox projectId={projectId} />
 
@@ -340,7 +340,7 @@ export default function ProjectDetail(): React.ReactElement {
               <span className="text-xs text-muted-foreground">{notesDirty ? 'Unsaved' : 'Saved'}</span>
             </div>
             <p className="text-xs text-muted-foreground mb-2">
-              Personal notes — kept with this project, never sent to the LLM.
+              Personal notes — kept with this project, never used to generate reports.
             </p>
             <textarea
               value={notesDraft ?? ''}

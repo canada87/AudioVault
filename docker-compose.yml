@@ -24,6 +24,7 @@ services:
       - LLM_DAILY_LIMIT=${LLM_DAILY_LIMIT:-5}
       - TRANSCRIPTION_CRON=${TRANSCRIPTION_CRON:-0 4 * * *}
       - LLM_POLL_INTERVAL=${LLM_POLL_INTERVAL:-30}
+      - MCP_TOKEN=${MCP_TOKEN:-}
     healthcheck:
       test: ['CMD', 'node', '-e', "fetch('http://localhost:3000/api/health').then(r=>{if(!r.ok)throw 1}).catch(()=>process.exit(1))"]
       interval: 30s

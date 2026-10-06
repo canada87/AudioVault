@@ -29,12 +29,18 @@ backend/src/
     audio.ts            — /api/audio/:id (streaming with Range support)
     stats.ts            — /api/stats, /api/limits/today, /api/settings GET+PATCH, /api/logs
     logs.ts             — /api/logs (SSE log stream)
+    mcp.ts              — POST /mcp (Streamable HTTP MCP endpoint, bearer-token auth via MCP_TOKEN)
   services/
     llm.ts              — generateSummary(): branches on LLM_PROVIDER → Gemini or OpenAI
     stt.ts              — Scriberr STT integration (polling-based)
     file.ts             — audio file helpers
     limits.ts           — daily LLM call counting (dailyLimits table)
     logStore.ts         — in-memory ring buffer for log SSE
+  mcp/
+    server.ts           — buildMcpServer(): the 8 read-only tools and their descriptions
+    queries.ts          — data access for the tools (compact rows only; bodies via dedicated calls)
+    documentText.ts     — text extraction for pdf/docx/pptx/xlsx/txt
+    format.ts           — compact JSON output, text slicing and excerpt search
   scheduler/
     transcription.ts    — node-cron job (TRANSCRIPTION_CRON, default 4 AM)
     summarizer.ts       — polling loop (LLM_POLL_INTERVAL minutes)
@@ -116,6 +122,7 @@ All LLM-related vars can be changed at runtime via Settings UI — no restart ne
 | `LLM_POLL_INTERVAL` | `30` | Minutes |
 | `PORT` | `3000` | |
 | `DB_PATH` | `./data/audiovault.db` | |
+| `MCP_TOKEN` | — | Enables `/mcp` when set (min 16 chars); otherwise it answers 503 |
 
 ## Database schema (summary)
 
@@ -131,4 +138,5 @@ All LLM-related vars can be changed at runtime via Settings UI — no restart ne
 - **`process.env` mutation**: settings are patched directly into `process.env` at runtime. This works in a single-process deployment (PM2 single instance, Docker single container). Do not assume env is immutable.
 - **LLM_PROVIDER read at call time**: `generateSummary()` reads `process.env['LLM_PROVIDER']` on every call. Keep it that way — it's what enables runtime switching.
 - **File paths**: `watcher.ts` normalizes all paths to forward slashes via `normalizePath()`. Always use normalized paths when querying `records.file_path`.
+- **MCP server**: read-only and stateless (new server + transport per request, JSON replies). Keep tool output compact — listings must not carry bodies, long text goes through offset/`query` windows. Import `z` from `'zod/v3'` in `mcp/server.ts`: the root `'zod'` export makes `tsc` fail with TS2589 / run out of memory against the MCP SDK types. `pdfjs-dist` is ESM-only, hence the `dynamicImport` helper in `documentText.ts`.
 - **Frontend `EDITABLE_KEYS`**: adding a new setting to the backend `ALLOWED_KEYS` set also requires adding it to `EDITABLE_KEYS` in `SettingsPage.tsx` for it to appear in the UI.

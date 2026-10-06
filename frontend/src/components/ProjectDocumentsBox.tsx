@@ -38,7 +38,7 @@ function validate(file: File): string | null {
   return null;
 }
 
-// Documents stored with one project. Kept on the server's disk, never sent to the LLM.
+// Documents stored with one project. Kept on the server's disk, never used to generate reports.
 export default function ProjectDocumentsBox({ projectId }: { projectId: number }): React.ReactElement {
   const queryClient = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -105,7 +105,7 @@ export default function ProjectDocumentsBox({ projectId }: { projectId: number }
         </span>
       </div>
       <p className="text-xs text-muted-foreground mb-3">
-        Files kept with this project — stored locally, never sent to the LLM.
+        Files kept with this project — stored locally, never used to generate reports.
       </p>
 
       <div
