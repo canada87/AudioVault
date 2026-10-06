@@ -239,6 +239,9 @@ Use the **local configuration file**, not *Settings → Connectors*:
    }
    ```
 
+   The URL must end with `/mcp`: any other path returns the web UI's HTML page, which the bridge reports
+   as `Unexpected content type: text/html`.
+
    The token goes through an environment variable because spaces inside `--header` values are mangled on
    Windows. If the URL is plain `http://` (a LAN or Tailscale IP without TLS) also add `"--allow-http"` to `args`.
 3. Quit Claude Desktop completely (including the tray icon) and start it again. `audiovault` should appear
