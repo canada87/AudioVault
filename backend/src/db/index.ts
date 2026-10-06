@@ -98,6 +98,23 @@ sqlite.exec(`
     updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
     PRIMARY KEY (project_id, record_id)
   );
+
+  CREATE TABLE IF NOT EXISTS contacts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    role TEXT,
+    email TEXT,
+    phone TEXT,
+    notes TEXT,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+  );
+
+  CREATE TABLE IF NOT EXISTS project_contacts (
+    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    contact_id INTEGER NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+    PRIMARY KEY (project_id, contact_id)
+  );
 `);
 
 // Idempotent column additions for existing databases

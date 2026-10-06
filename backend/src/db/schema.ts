@@ -128,6 +128,37 @@ export const projectRecords = sqliteTable(
   }),
 );
 
+// People attached to projects. Never sent to the LLM (like project notes).
+export const contacts = sqliteTable('contacts', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  role: text('role'),
+  email: text('email'),
+  phone: text('phone'),
+  notes: text('notes'),
+  created_at: integer('created_at')
+    .default(sql`(unixepoch())`)
+    .notNull(),
+  updated_at: integer('updated_at')
+    .default(sql`(unixepoch())`)
+    .notNull(),
+});
+
+export const projectContacts = sqliteTable(
+  'project_contacts',
+  {
+    project_id: integer('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    contact_id: integer('contact_id')
+      .notNull()
+      .references(() => contacts.id, { onDelete: 'cascade' }),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.project_id, t.contact_id] }),
+  }),
+);
+
 export type Record = typeof records.$inferSelect;
 export type NewRecord = typeof records.$inferInsert;
 export type Tag = typeof tags.$inferSelect;
@@ -140,6 +171,7 @@ export type Project = typeof projects.$inferSelect;
 export type NewProject = typeof projects.$inferInsert;
 export type ProjectTag = typeof projectTags.$inferSelect;
 export type ProjectRecord = typeof projectRecords.$inferSelect;
+export type Contact = typeof contacts.$inferSelect;
 
 export type RecordStatus = 'pending' | 'transcribing' | 'transcribed' | 'processing' | 'done' | 'error';
 export type ProjectRecordState = 'included' | 'excluded';

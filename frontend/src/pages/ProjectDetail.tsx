@@ -9,6 +9,7 @@ import type { ProjectRecord, TagQueryGroup } from '../api/projects';
 import { fetchTags } from '../api/tags';
 import ConfirmDialog from '../components/ConfirmDialog';
 import TagQueryBuilder from '../components/TagQueryBuilder';
+import ProjectContactsBox from '../components/ProjectContactsBox';
 
 function fmtDate(ts: number): string {
   return format(new Date(ts * 1000), 'MMM d, yyyy HH:mm');
@@ -325,32 +326,36 @@ export default function ProjectDetail(): React.ReactElement {
           )}
         </div>
 
-        {/* Notes — local to this project, never sent to the LLM */}
-        <div className="lg:col-span-1 bg-card rounded-lg border border-border p-4 lg:sticky lg:top-6">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-medium text-muted-foreground">Notes</span>
-            <span className="text-xs text-muted-foreground">{notesDirty ? 'Unsaved' : 'Saved'}</span>
-          </div>
-          <p className="text-xs text-muted-foreground mb-2">
-            Personal notes — kept with this project, never sent to the LLM.
-          </p>
-          <textarea
-            value={notesDraft ?? ''}
-            onChange={(e) => setNotesDraft(e.target.value)}
-            rows={14}
-            placeholder="Anything relevant that isn't in the meetings..."
-            className="w-full px-3 py-2 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-y"
-          />
-          <div className="flex justify-end mt-2">
-            <button
-              type="button"
-              onClick={() => notesDraft !== null && notesMutation.mutate(notesDraft)}
-              disabled={!notesDirty || notesMutation.isPending}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
-            >
-              {notesMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-              Save notes
-            </button>
+        {/* Contacts and notes — local to this project, never sent to the LLM */}
+        <div className="lg:col-span-1 space-y-6 lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-auto">
+          <ProjectContactsBox projectId={projectId} />
+
+          <div className="bg-card rounded-lg border border-border p-4">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-medium text-muted-foreground">Notes</span>
+              <span className="text-xs text-muted-foreground">{notesDirty ? 'Unsaved' : 'Saved'}</span>
+            </div>
+            <p className="text-xs text-muted-foreground mb-2">
+              Personal notes — kept with this project, never sent to the LLM.
+            </p>
+            <textarea
+              value={notesDraft ?? ''}
+              onChange={(e) => setNotesDraft(e.target.value)}
+              rows={14}
+              placeholder="Anything relevant that isn't in the meetings..."
+              className="w-full px-3 py-2 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-y"
+            />
+            <div className="flex justify-end mt-2">
+              <button
+                type="button"
+                onClick={() => notesDraft !== null && notesMutation.mutate(notesDraft)}
+                disabled={!notesDirty || notesMutation.isPending}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              >
+                {notesMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                Save notes
+              </button>
+            </div>
           </div>
         </div>
       </div>

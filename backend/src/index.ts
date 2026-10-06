@@ -15,6 +15,7 @@ import { registerAudioRoutes } from './routes/audio';
 import { registerStatsRoutes } from './routes/stats';
 import { registerLogRoutes } from './routes/logs';
 import { registerProjectRoutes } from './routes/projects';
+import { registerContactRoutes } from './routes/contacts';
 import db from './db';
 import { settings } from './db/schema';
 import { logStore } from './services/logStore';
@@ -121,6 +122,7 @@ async function main(): Promise<void> {
   await registerStatsRoutes(app);
   await registerLogRoutes(app);
   await registerProjectRoutes(app);
+  await registerContactRoutes(app);
 
   // Health check
   app.get('/api/health', async (_req, reply) => {
