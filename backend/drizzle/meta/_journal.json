@@ -29,6 +29,13 @@
       "when": 1790753071193,
       "tag": "0003_sudden_giant_man",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1791302626691,
+      "tag": "0004_petite_captain_britain",
+      "breakpoints": true
     }
   ]
 }

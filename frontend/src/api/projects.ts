@@ -1,8 +1,33 @@
-export type ProjectTagMode = 'or' | 'and';
+// Boolean tag expression, mirrored from backend/src/services/tagQuery.ts.
+export type TagQueryOp = 'and' | 'or';
 
-export interface ProjectTag {
-  id: number;
-  name: string;
+export interface TagQueryTag {
+  type: 'tag';
+  tag_id: number;
+  not: boolean;
+}
+
+export interface TagQueryGroup {
+  type: 'group';
+  op: TagQueryOp;
+  not: boolean;
+  children: TagQueryNode[];
+}
+
+export type TagQueryNode = TagQueryTag | TagQueryGroup;
+
+export function emptyTagQuery(): TagQueryGroup {
+  return { type: 'group', op: 'or', not: false, children: [] };
+}
+
+export function tagQueryHasTags(node: TagQueryNode): boolean {
+  return node.type === 'tag' || node.children.some(tagQueryHasTags);
+}
+
+export interface TagQueryPreview {
+  text: string;
+  total: number;
+  summarized: number;
 }
 
 export interface ProjectRecord {
@@ -16,8 +41,7 @@ export interface ProjectRecord {
 export interface ProjectSummary {
   id: number;
   title: string;
-  tag_mode: ProjectTagMode;
-  tags: ProjectTag[];
+  tag_query_text: string;
   included_count: number;
   pending_count: number;
   excluded_count: number;
@@ -33,7 +57,8 @@ export interface ProjectSummary {
 export interface ProjectDetail {
   id: number;
   title: string;
-  tag_mode: ProjectTagMode;
+  tag_query: TagQueryGroup;
+  tag_query_text: string;
   report: string | null;
   notes: string | null;
   report_period_start: number | null;
@@ -42,7 +67,6 @@ export interface ProjectDetail {
   last_error: string | null;
   created_at: number;
   updated_at: number;
-  tags: ProjectTag[];
   included: ProjectRecord[];
   excluded: ProjectRecord[];
   pending: ProjectRecord[];
@@ -71,10 +95,18 @@ export async function fetchProject(id: number): Promise<ProjectDetail> {
   return handleResponse<ProjectDetail>(res);
 }
 
+export async function previewTagQuery(tagQuery: TagQueryGroup): Promise<TagQueryPreview> {
+  const res = await fetch(`${BASE_URL}/projects/preview`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tag_query: tagQuery }),
+  });
+  return handleResponse<TagQueryPreview>(res);
+}
+
 export async function createProject(body: {
   title: string;
-  tag_ids: number[];
-  tag_mode?: ProjectTagMode;
+  tag_query: TagQueryGroup;
 }): Promise<ProjectDetail> {
   const res = await fetch(`${BASE_URL}/projects`, {
     method: 'POST',
@@ -88,8 +120,7 @@ export async function patchProject(
   id: number,
   body: {
     title?: string;
-    tag_ids?: number[];
-    tag_mode?: ProjectTagMode;
+    tag_query?: TagQueryGroup;
     report?: string | null;
     notes?: string | null;
   },

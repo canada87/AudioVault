@@ -1,9 +1,19 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import db from '../db';
-import { projects, projectRecords, projectTags, records, recordTags, tags } from '../db/schema';
-import type { ProjectTagMode, Record as DbRecord } from '../db/schema';
+import { projects, projectRecords, records, recordTags, tags } from '../db/schema';
+import type { Record as DbRecord } from '../db/schema';
 import { generateProjectReport } from './llm';
 import { canProcessToday, incrementToday } from './limits';
+import {
+  TagQueryError,
+  collectTagIds,
+  emptyTagQuery,
+  evaluateTagQuery,
+  parseTagQuery,
+  pruneTagQuery,
+  tagQueryToText,
+} from './tagQuery';
+import type { TagQueryGroup } from './tagQuery';
 import type { FastifyBaseLogger } from 'fastify';
 
 export class ProjectError extends Error {
@@ -22,50 +32,81 @@ function meetingTitle(record: DbRecord): string {
   return record.display_name ?? record.original_name;
 }
 
-export async function getProjectTagIds(projectId: number): Promise<number[]> {
-  const rows = await db
-    .select({ tag_id: projectTags.tag_id })
-    .from(projectTags)
-    .where(eq(projectTags.project_id, projectId));
-  return rows.map((r) => r.tag_id);
+// Validates a client-supplied tag query and checks that every referenced tag exists.
+export async function parseAndValidateTagQuery(raw: unknown): Promise<TagQueryGroup> {
+  const query = parseTagQuery(raw);
+  const wanted = [...collectTagIds(query)];
+  const found = await db.select({ id: tags.id }).from(tags).where(inArray(tags.id, wanted));
+  if (found.length !== wanted.length) {
+    const foundIds = new Set(found.map((t) => t.id));
+    throw new TagQueryError(`Unknown tag id(s): ${wanted.filter((id) => !foundIds.has(id)).join(', ')}`);
+  }
+  return query;
 }
 
-// Records that match the project's tags (per tag_mode) and have a non-empty summary.
-export async function getEligibleRecords(tagIds: number[], tagMode: ProjectTagMode): Promise<DbRecord[]> {
-  if (tagIds.length === 0) return [];
+// Stored query with tags that no longer exist removed, plus its readable form.
+async function loadTagQuery(project: typeof projects.$inferSelect): Promise<{ query: TagQueryGroup; text: string }> {
+  const tagRows = await db.select({ id: tags.id, name: tags.name }).from(tags);
+  const nameById = new Map(tagRows.map((t) => [t.id, t.name]));
 
-  let recordIds: number[];
-  if (tagMode === 'and' && tagIds.length > 1) {
-    const rows = await db
-      .select({ record_id: recordTags.record_id })
-      .from(recordTags)
-      .where(inArray(recordTags.tag_id, tagIds))
-      .groupBy(recordTags.record_id)
-      .having(sql`count(distinct ${recordTags.tag_id}) = ${tagIds.length}`);
-    recordIds = rows.map((r) => r.record_id);
-  } else {
-    const rows = await db
-      .selectDistinct({ record_id: recordTags.record_id })
-      .from(recordTags)
-      .where(inArray(recordTags.tag_id, tagIds));
-    recordIds = rows.map((r) => r.record_id);
+  let stored: TagQueryGroup = emptyTagQuery();
+  if (project.tag_query) {
+    try {
+      stored = parseTagQuery(JSON.parse(project.tag_query));
+    } catch {
+      // Unreadable stored query: behave as "matches nothing" rather than failing the whole project.
+    }
+  }
+  const query = pruneTagQuery(stored, (id) => nameById.has(id));
+  return { query, text: tagQueryToText(query, nameById) };
+}
+
+// Every record the query matches, flagged by whether it has a usable summary.
+async function matchRecords(query: TagQueryGroup): Promise<Array<{ id: number; summarized: boolean }>> {
+  const tagsByRecord = new Map<number, Set<number>>();
+  for (const row of await db.select().from(recordTags)) {
+    const set = tagsByRecord.get(row.record_id) ?? new Set<number>();
+    set.add(row.tag_id);
+    tagsByRecord.set(row.record_id, set);
   }
 
-  if (recordIds.length === 0) return [];
-
   const rows = await db
-    .select()
-    .from(records)
-    .where(inArray(records.id, recordIds));
+    .select({ id: records.id, summarized: sql<number>`trim(coalesce(${records.summary}, '')) != ''` })
+    .from(records);
 
+  const noTags = new Set<number>();
   return rows
-    .filter((r) => r.summary != null && r.summary.trim() !== '')
-    .sort((a, b) => a.recorded_at - b.recorded_at);
+    .filter((r) => evaluateTagQuery(query, tagsByRecord.get(r.id) ?? noTags))
+    .map((r) => ({ id: r.id, summarized: Boolean(r.summarized) }));
+}
+
+// Records that match the project's tag query and have a non-empty summary.
+export async function getEligibleRecords(query: TagQueryGroup): Promise<DbRecord[]> {
+  const ids = (await matchRecords(query)).filter((r) => r.summarized).map((r) => r.id);
+  if (ids.length === 0) return [];
+
+  const rows = await db.select().from(records).where(inArray(records.id, ids));
+  return rows.sort((a, b) => a.recorded_at - b.recorded_at);
+}
+
+// Live feedback for the query builder, before anything is saved.
+export async function previewTagQuery(
+  raw: unknown,
+): Promise<{ text: string; total: number; summarized: number }> {
+  const query = await parseAndValidateTagQuery(raw);
+  const tagRows = await db.select({ id: tags.id, name: tags.name }).from(tags);
+  const matched = await matchRecords(query);
+  return {
+    text: tagQueryToText(query, new Map(tagRows.map((t) => [t.id, t.name]))),
+    total: matched.length,
+    summarized: matched.filter((r) => r.summarized).length,
+  };
 }
 
 export interface ProjectDetail {
   project: typeof projects.$inferSelect;
-  tags: Array<{ id: number; name: string }>;
+  query: TagQueryGroup;
+  queryText: string;
   included: DbRecord[];
   excluded: DbRecord[];
   pending: DbRecord[];
@@ -77,12 +118,8 @@ export async function getProjectDetail(projectId: number): Promise<ProjectDetail
     throw new ProjectError('Project not found', 404);
   }
 
-  const tagIds = await getProjectTagIds(projectId);
-  const tagRows = tagIds.length
-    ? await db.select({ id: tags.id, name: tags.name }).from(tags).where(inArray(tags.id, tagIds))
-    : [];
-
-  const eligible = await getEligibleRecords(tagIds, project.tag_mode as ProjectTagMode);
+  const { query, text } = await loadTagQuery(project);
+  const eligible = await getEligibleRecords(query);
 
   const stateRows = await db
     .select()
@@ -94,7 +131,7 @@ export async function getProjectDetail(projectId: number): Promise<ProjectDetail
   const excluded = eligible.filter((r) => stateByRecordId.get(r.id) === 'excluded');
   const pending = eligible.filter((r) => !stateByRecordId.has(r.id));
 
-  return { project, tags: tagRows, included, excluded, pending };
+  return { project, query, queryText: text, included, excluded, pending };
 }
 
 async function recomputePeriod(projectId: number): Promise<{ start: number | null; end: number | null }> {

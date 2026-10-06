@@ -3,17 +3,17 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, Plus, FolderKanban, RefreshCw, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
-import { fetchProjects, createProject } from '../api/projects';
+import { fetchProjects, createProject, emptyTagQuery, tagQueryHasTags } from '../api/projects';
+import type { TagQueryGroup } from '../api/projects';
 import { fetchTags } from '../api/tags';
-import { familyFor } from '../components/tagColors';
+import TagQueryBuilder from '../components/TagQueryBuilder';
 
 export default function ProjectsPage(): React.ReactElement {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState('');
-  const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
-  const [tagMode, setTagMode] = useState<'or' | 'and'>('or');
+  const [tagQuery, setTagQuery] = useState<TagQueryGroup>(emptyTagQuery());
   const [error, setError] = useState<string | null>(null);
 
   const { data: projects = [], isLoading } = useQuery({
@@ -31,8 +31,7 @@ export default function ProjectsPage(): React.ReactElement {
     onSuccess: (project) => {
       setShowForm(false);
       setTitle('');
-      setSelectedTagIds([]);
-      setTagMode('or');
+      setTagQuery(emptyTagQuery());
       setError(null);
       void queryClient.invalidateQueries({ queryKey: ['projects'] });
       navigate(`/projects/${project.id}`);
@@ -40,13 +39,11 @@ export default function ProjectsPage(): React.ReactElement {
     onError: (e: Error) => setError(e.message),
   });
 
-  const toggleTag = (id: number): void => {
-    setSelectedTagIds((prev) => (prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]));
-  };
+  const canCreate = title.trim().length > 0 && tagQueryHasTags(tagQuery);
 
   const handleCreate = (): void => {
-    if (!title.trim() || selectedTagIds.length === 0) return;
-    createMutation.mutate({ title: title.trim(), tag_ids: selectedTagIds, tag_mode: tagMode });
+    if (!canCreate) return;
+    createMutation.mutate({ title: title.trim(), tag_query: tagQuery });
   };
 
   return (
@@ -79,40 +76,12 @@ export default function ProjectsPage(): React.ReactElement {
           />
 
           <div className="space-y-2">
-            <div className="text-xs font-medium text-muted-foreground">Include recordings tagged with:</div>
-            <div className="flex flex-wrap gap-1.5 items-center">
-              {[...allTags]
-                .sort((a, b) => a.name.localeCompare(b.name))
-                .map((tag) => {
-                  const selected = selectedTagIds.includes(tag.id);
-                  const family = familyFor(tag);
-                  return (
-                    <button
-                      key={tag.id}
-                      type="button"
-                      onClick={() => toggleTag(tag.id)}
-                      className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${
-                        selected ? family.filterSelected : family.filterUnselected
-                      }`}
-                    >
-                      {tag.name}
-                    </button>
-                  );
-                })}
-              {allTags.length === 0 && (
-                <span className="text-xs text-muted-foreground">No tags yet — create some in the Tags page first.</span>
-              )}
-              {selectedTagIds.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => setTagMode(tagMode === 'or' ? 'and' : 'or')}
-                  className="px-2 py-0.5 text-xs rounded-full border font-medium transition-colors bg-secondary text-secondary-foreground border-secondary hover:bg-secondary/80"
-                  title={tagMode === 'or' ? 'Matching recordings with ANY selected tag' : 'Matching recordings with ALL selected tags'}
-                >
-                  {tagMode.toUpperCase()}
-                </button>
-              )}
-            </div>
+            <div className="text-xs font-medium text-muted-foreground">Include recordings that match:</div>
+            <TagQueryBuilder
+              value={tagQuery}
+              onChange={(q) => { setTagQuery(q); setError(null); }}
+              allTags={allTags}
+            />
           </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
@@ -128,7 +97,7 @@ export default function ProjectsPage(): React.ReactElement {
             <button
               type="button"
               onClick={handleCreate}
-              disabled={!title.trim() || selectedTagIds.length === 0 || createMutation.isPending}
+              disabled={!canCreate || createMutation.isPending}
               className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
             >
               {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
@@ -159,14 +128,9 @@ export default function ProjectsPage(): React.ReactElement {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-foreground truncate">{project.title}</span>
-                    {project.tags.map((tag) => (
-                      <span
-                        key={tag.id}
-                        className="px-2 py-0.5 text-xs rounded-full bg-secondary text-secondary-foreground"
-                      >
-                        {tag.name}
-                      </span>
-                    ))}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5 truncate font-mono" title={project.tag_query_text}>
+                    {project.tag_query_text || 'No tags selected'}
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
                     {project.report_period_start && project.report_period_end

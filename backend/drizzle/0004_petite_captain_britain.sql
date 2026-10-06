@@ -1,0 +1,1 @@
+ALTER TABLE `projects` ADD `tag_query` text;

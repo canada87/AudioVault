@@ -4,9 +4,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
 import { format } from 'date-fns';
 import { ArrowLeft, Loader2, RefreshCw, RotateCcw, Trash2, AlertTriangle, Pencil, Check, X } from 'lucide-react';
-import { fetchProject, generateProject, regenerateProject, deleteProject, patchProject } from '../api/projects';
-import type { ProjectRecord } from '../api/projects';
+import { fetchProject, generateProject, regenerateProject, deleteProject, patchProject, tagQueryHasTags } from '../api/projects';
+import type { ProjectRecord, TagQueryGroup } from '../api/projects';
+import { fetchTags } from '../api/tags';
 import ConfirmDialog from '../components/ConfirmDialog';
+import TagQueryBuilder from '../components/TagQueryBuilder';
 
 function fmtDate(ts: number): string {
   return format(new Date(ts * 1000), 'MMM d, yyyy HH:mm');
@@ -25,11 +27,17 @@ export default function ProjectDetail(): React.ReactElement {
   const [isEditingReport, setIsEditingReport] = useState(false);
   const [editedReport, setEditedReport] = useState('');
   const [notesDraft, setNotesDraft] = useState<string | null>(null);
+  const [queryDraft, setQueryDraft] = useState<TagQueryGroup | null>(null);
 
   const { data: project, isLoading } = useQuery({
     queryKey: ['project', projectId],
     queryFn: () => fetchProject(projectId),
     enabled: !Number.isNaN(projectId),
+  });
+
+  const { data: allTags = [] } = useQuery({
+    queryKey: ['tags'],
+    queryFn: fetchTags,
   });
 
   const invalidate = (): void => {
@@ -64,6 +72,12 @@ export default function ProjectDetail(): React.ReactElement {
   const notesMutation = useMutation({
     mutationFn: (notes: string) => patchProject(projectId, { notes }),
     onSuccess: () => { setActionError(null); invalidate(); },
+    onError: (e: Error) => setActionError(e.message),
+  });
+
+  const editQueryMutation = useMutation({
+    mutationFn: (tag_query: TagQueryGroup) => patchProject(projectId, { tag_query }),
+    onSuccess: () => { setActionError(null); setQueryDraft(null); invalidate(); },
     onError: (e: Error) => setActionError(e.message),
   });
 
@@ -135,16 +149,21 @@ export default function ProjectDetail(): React.ReactElement {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">{project.title}</h1>
-          <div className="flex flex-wrap items-center gap-1.5 mt-2">
-            {project.tags.map((tag) => (
-              <span key={tag.id} className="px-2 py-0.5 text-xs rounded-full bg-secondary text-secondary-foreground">
-                {tag.name}
+          {queryDraft === null && (
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              <span className="font-mono text-xs text-muted-foreground break-words">
+                {project.tag_query_text || 'No tags selected'}
               </span>
-            ))}
-            {project.tags.length > 1 && (
-              <span className="text-xs text-muted-foreground">({project.tag_mode.toUpperCase()})</span>
-            )}
-          </div>
+              <button
+                type="button"
+                onClick={() => setQueryDraft(project.tag_query)}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Pencil className="w-3 h-3" />
+                Edit tags
+              </button>
+            </div>
+          )}
           <p className="text-sm text-muted-foreground mt-2">
             {project.report_period_start && project.report_period_end
               ? `Period: ${format(new Date(project.report_period_start * 1000), 'MMM d, yyyy')} – ${format(new Date(project.report_period_end * 1000), 'MMM d, yyyy')}`
@@ -162,6 +181,33 @@ export default function ProjectDetail(): React.ReactElement {
           <Trash2 className="w-4 h-4" />
         </button>
       </div>
+
+      {queryDraft !== null && (
+        <div className="bg-card rounded-lg border border-border p-4 space-y-3">
+          <div className="text-xs font-medium text-muted-foreground">Include recordings that match:</div>
+          <TagQueryBuilder value={queryDraft} onChange={setQueryDraft} allTags={allTags} />
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setQueryDraft(null)}
+              disabled={editQueryMutation.isPending}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-input bg-background hover:bg-accent disabled:opacity-50 transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => editQueryMutation.mutate(queryDraft)}
+              disabled={!tagQueryHasTags(queryDraft) || editQueryMutation.isPending}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+            >
+              {editQueryMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+              Save
+            </button>
+          </div>
+        </div>
+      )}
 
       {(actionError || project.last_error) && (
         <div className="flex items-start gap-2 px-3 py-2 rounded-md bg-destructive/10 text-destructive text-sm">

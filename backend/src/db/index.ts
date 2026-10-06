@@ -74,6 +74,7 @@ sqlite.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
     tag_mode TEXT NOT NULL DEFAULT 'or',
+    tag_query TEXT,
     report TEXT,
     notes TEXT,
     report_period_start INTEGER,
@@ -110,6 +111,31 @@ try {
   sqlite.exec(`ALTER TABLE projects ADD COLUMN notes TEXT`);
 } catch (_e) {
   // Column already exists
+}
+
+try {
+  sqlite.exec(`ALTER TABLE projects ADD COLUMN tag_query TEXT`);
+} catch (_e) {
+  // Column already exists
+}
+
+// Convert legacy projects (flat project_tags + tag_mode) to the boolean tag_query format.
+{
+  const legacy = sqlite
+    .prepare(`SELECT id, tag_mode FROM projects WHERE tag_query IS NULL`)
+    .all() as Array<{ id: number; tag_mode: string }>;
+  const tagIdsOf = sqlite.prepare(`SELECT tag_id FROM project_tags WHERE project_id = ?`);
+  const setQuery = sqlite.prepare(`UPDATE projects SET tag_query = ? WHERE id = ?`);
+  for (const p of legacy) {
+    const tagIds = (tagIdsOf.all(p.id) as Array<{ tag_id: number }>).map((r) => r.tag_id);
+    const query = {
+      type: 'group',
+      op: p.tag_mode === 'and' ? 'and' : 'or',
+      not: false,
+      children: tagIds.map((tag_id) => ({ type: 'tag', tag_id, not: false })),
+    };
+    setQuery.run(JSON.stringify(query), p.id);
+  }
 }
 
 // Create FTS5 virtual table for full-text search

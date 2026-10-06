@@ -1,21 +1,27 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { eq } from 'drizzle-orm';
 import db from '../db';
-import { projects, projectTags } from '../db/schema';
-import type { ProjectTagMode, Record as DbRecord } from '../db/schema';
-import { getProjectDetail, ProjectError, runIncrementalGenerate, runRegenerateFromSelection } from '../services/projects';
+import { projects } from '../db/schema';
+import type { Record as DbRecord } from '../db/schema';
+import {
+  getProjectDetail,
+  parseAndValidateTagQuery,
+  previewTagQuery,
+  ProjectError,
+  runIncrementalGenerate,
+  runRegenerateFromSelection,
+} from '../services/projects';
 import type { ProjectDetail } from '../services/projects';
+import { TagQueryError } from '../services/tagQuery';
 
 interface CreateProjectBody {
   title: string;
-  tag_ids: number[];
-  tag_mode?: ProjectTagMode;
+  tag_query: unknown;
 }
 
 interface UpdateProjectBody {
   title?: string;
-  tag_ids?: number[];
-  tag_mode?: ProjectTagMode;
+  tag_query?: unknown;
   report?: string | null;
   notes?: string | null;
 }
@@ -34,35 +40,25 @@ function toRecordDto(r: DbRecord) {
   };
 }
 
-function isValidTagMode(v: unknown): v is ProjectTagMode {
-  return v === 'or' || v === 'and';
-}
-
 function toDetailDto(detail: ProjectDetail) {
+  // tag_query/tag_mode on the row are the raw stored form; expose the parsed query instead.
+  const { tag_query: _storedQuery, tag_mode: _legacyMode, ...project } = detail.project;
   return {
-    ...detail.project,
-    tags: detail.tags,
+    ...project,
+    tag_query: detail.query,
+    tag_query_text: detail.queryText,
     included: detail.included.map(toRecordDto),
     excluded: detail.excluded.map(toRecordDto),
     pending: detail.pending.map(toRecordDto),
   };
 }
 
-function setProjectTags(projectId: number, tagIds: number[]): void {
-  // better-sqlite3's transaction wrapper requires a synchronous callback.
-  db.transaction((tx) => {
-    tx.delete(projectTags).where(eq(projectTags.project_id, projectId)).run();
-    if (tagIds.length > 0) {
-      tx.insert(projectTags)
-        .values(tagIds.map((tagId) => ({ project_id: projectId, tag_id: tagId })))
-        .run();
-    }
-  });
-}
-
 function handleProjectError(error: unknown, reply: FastifyReply): FastifyReply {
   if (error instanceof ProjectError) {
     return reply.status(error.status).send({ error: error.message, statusCode: error.status });
+  }
+  if (error instanceof TagQueryError) {
+    return reply.status(400).send({ error: error.message, statusCode: 400 });
   }
   const message = error instanceof Error ? error.message : 'Unknown error';
   return reply.status(500).send({ error: message, statusCode: 500 });
@@ -80,8 +76,7 @@ export async function registerProjectRoutes(app: FastifyInstance): Promise<void>
         return {
           id: project.id,
           title: project.title,
-          tag_mode: project.tag_mode,
-          tags: detail.tags,
+          tag_query_text: detail.queryText,
           included_count: detail.included.length,
           pending_count: detail.pending.length,
           excluded_count: detail.excluded.length,
@@ -99,28 +94,37 @@ export async function registerProjectRoutes(app: FastifyInstance): Promise<void>
     return reply.send(result.reverse());
   });
 
+  // POST /api/projects/preview — how many recordings a tag query would match (nothing is saved)
+  app.post(
+    '/api/projects/preview',
+    async (req: FastifyRequest<{ Body: { tag_query: unknown } }>, reply: FastifyReply) => {
+      try {
+        return reply.send(await previewTagQuery(req.body.tag_query));
+      } catch (error) {
+        return handleProjectError(error, reply);
+      }
+    },
+  );
+
   // POST /api/projects
   app.post('/api/projects', async (req: FastifyRequest<{ Body: CreateProjectBody }>, reply: FastifyReply) => {
-    const { title, tag_ids, tag_mode } = req.body;
+    const { title, tag_query } = req.body;
 
     if (!title || title.trim().length === 0) {
       return reply.status(400).send({ error: 'Title is required', statusCode: 400 });
     }
-    if (!Array.isArray(tag_ids) || tag_ids.length === 0 || !tag_ids.every((id) => typeof id === 'number')) {
-      return reply.status(400).send({ error: 'tag_ids must be a non-empty array of numbers', statusCode: 400 });
+
+    try {
+      const query = await parseAndValidateTagQuery(tag_query);
+      const [project] = await db
+        .insert(projects)
+        .values({ title: title.trim(), tag_query: JSON.stringify(query) })
+        .returning();
+
+      return reply.status(201).send(toDetailDto(await getProjectDetail(project.id)));
+    } catch (error) {
+      return handleProjectError(error, reply);
     }
-    if (tag_mode !== undefined && !isValidTagMode(tag_mode)) {
-      return reply.status(400).send({ error: "tag_mode must be 'or' or 'and'", statusCode: 400 });
-    }
-
-    const [project] = await db
-      .insert(projects)
-      .values({ title: title.trim(), tag_mode: tag_mode ?? 'or' })
-      .returning();
-
-    setProjectTags(project.id, tag_ids);
-
-    return reply.status(201).send(toDetailDto(await getProjectDetail(project.id)));
   });
 
   // GET /api/projects/:id
@@ -151,16 +155,10 @@ export async function registerProjectRoutes(app: FastifyInstance): Promise<void>
         return reply.status(404).send({ error: 'Project not found', statusCode: 404 });
       }
 
-      const { title, tag_ids, tag_mode, report, notes } = req.body;
+      const { title, tag_query, report, notes } = req.body;
 
       if (title !== undefined && title.trim().length === 0) {
         return reply.status(400).send({ error: 'Title cannot be empty', statusCode: 400 });
-      }
-      if (tag_ids !== undefined && (!Array.isArray(tag_ids) || !tag_ids.every((tid) => typeof tid === 'number'))) {
-        return reply.status(400).send({ error: 'tag_ids must be an array of numbers', statusCode: 400 });
-      }
-      if (tag_mode !== undefined && !isValidTagMode(tag_mode)) {
-        return reply.status(400).send({ error: "tag_mode must be 'or' or 'and'", statusCode: 400 });
       }
       if (report !== undefined && report !== null && typeof report !== 'string') {
         return reply.status(400).send({ error: 'report must be a string or null', statusCode: 400 });
@@ -169,9 +167,18 @@ export async function registerProjectRoutes(app: FastifyInstance): Promise<void>
         return reply.status(400).send({ error: 'notes must be a string or null', statusCode: 400 });
       }
 
+      let tagQueryJson: string | undefined;
+      if (tag_query !== undefined) {
+        try {
+          tagQueryJson = JSON.stringify(await parseAndValidateTagQuery(tag_query));
+        } catch (error) {
+          return handleProjectError(error, reply);
+        }
+      }
+
       const updates: {
         title?: string;
-        tag_mode?: ProjectTagMode;
+        tag_query?: string;
         report?: string | null;
         notes?: string | null;
         updated_at: number;
@@ -179,15 +186,11 @@ export async function registerProjectRoutes(app: FastifyInstance): Promise<void>
         updated_at: Math.floor(Date.now() / 1000),
       };
       if (title !== undefined) updates.title = title.trim();
-      if (tag_mode !== undefined) updates.tag_mode = tag_mode;
+      if (tagQueryJson !== undefined) updates.tag_query = tagQueryJson;
       if (report !== undefined) updates.report = report;
       if (notes !== undefined) updates.notes = notes;
 
       await db.update(projects).set(updates).where(eq(projects.id, id));
-
-      if (tag_ids !== undefined) {
-        setProjectTags(id, tag_ids);
-      }
 
       return reply.send(toDetailDto(await getProjectDetail(id)));
     },

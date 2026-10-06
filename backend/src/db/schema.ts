@@ -75,7 +75,11 @@ export const settings = sqliteTable('settings', {
 export const projects = sqliteTable('projects', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   title: text('title').notNull(),
+  // Legacy flat selection (tag_mode + project_tags); superseded by tag_query and only read once,
+  // by the boot-time conversion in db/index.ts.
   tag_mode: text('tag_mode', { enum: ['or', 'and'] }).default('or').notNull(),
+  // JSON-encoded TagQueryGroup (see services/tagQuery.ts).
+  tag_query: text('tag_query'),
   report: text('report'),
   notes: text('notes'),
   report_period_start: integer('report_period_start'),
@@ -138,5 +142,4 @@ export type ProjectTag = typeof projectTags.$inferSelect;
 export type ProjectRecord = typeof projectRecords.$inferSelect;
 
 export type RecordStatus = 'pending' | 'transcribing' | 'transcribed' | 'processing' | 'done' | 'error';
-export type ProjectTagMode = 'or' | 'and';
 export type ProjectRecordState = 'included' | 'excluded';
