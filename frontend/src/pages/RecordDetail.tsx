@@ -280,7 +280,7 @@ export default function RecordDetail({ recordId, onClose }: RecordDetailProps): 
       {/* Header */}
       <div className="flex items-start gap-3 p-4 border-b border-border">
         <div className="flex-1 min-w-0">
-          <h2 className="text-base font-semibold text-foreground truncate">{displayName}</h2>
+          <h2 className="text-base font-semibold text-foreground break-words">{displayName}</h2>
           <div className="flex items-center gap-2 mt-1">
             <span className="text-xs text-muted-foreground">
               {format(recordedDate, 'MMM d, yyyy HH:mm')}

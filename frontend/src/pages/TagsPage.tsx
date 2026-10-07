@@ -54,7 +54,8 @@ export default function TagsPage(): React.ReactElement {
   const [reparentingId, setReparentingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<TagWithCount | null>(null);
-  const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
+  // Parents start collapsed; this tracks the ones the user has expanded.
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
   const { data: allTags = [], isLoading } = useQuery({
     queryKey: ['tags'],
@@ -168,7 +169,7 @@ export default function TagsPage(): React.ReactElement {
   };
 
   const toggleCollapse = (id: number): void => {
-    setCollapsed((prev) => {
+    setExpanded((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -184,7 +185,8 @@ export default function TagsPage(): React.ReactElement {
       (reparentMutation.isPending && reparentMutation.variables?.id === node.id) ||
       (deleteMutation.isPending && deleteMutation.variables === node.id);
     const hasChildren = node.children.length > 0;
-    const isCollapsed = collapsed.has(node.id);
+    // While searching, show everything so matching children aren't hidden.
+    const isCollapsed = !search.trim() && !expanded.has(node.id);
     const parents = eligibleParentsFor(node.id);
 
     return (
