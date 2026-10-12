@@ -36,9 +36,9 @@ async function projectExists(id: number): Promise<boolean> {
 }
 
 // Content-Disposition with an ASCII fallback plus the real UTF-8 name (RFC 5987).
-function attachmentHeader(name: string): string {
+function dispositionHeader(name: string, disposition: 'attachment' | 'inline'): string {
   const fallback = name.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_');
-  return `attachment; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(name)}`;
+  return `${disposition}; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(name)}`;
 }
 
 export async function registerDocumentRoutes(app: FastifyInstance): Promise<void> {
@@ -128,10 +128,14 @@ export async function registerDocumentRoutes(app: FastifyInstance): Promise<void
     },
   );
 
-  // GET /api/projects/:id/documents/:docId/download — always served as an attachment
+  // GET /api/projects/:id/documents/:docId/download — served as an attachment; with ?inline=1 a PDF
+  // is sent inline so the browser opens it instead of downloading (other types always download).
   app.get(
     '/api/projects/:id/documents/:docId/download',
-    async (req: FastifyRequest<{ Params: { id: string; docId: string } }>, reply: FastifyReply) => {
+    async (
+      req: FastifyRequest<{ Params: { id: string; docId: string }; Querystring: { inline?: string } }>,
+      reply: FastifyReply,
+    ) => {
       const projectId = parseInt(req.params.id, 10);
       const docId = parseInt(req.params.docId, 10);
       if (Number.isNaN(projectId) || Number.isNaN(docId)) {
@@ -152,10 +156,11 @@ export async function registerDocumentRoutes(app: FastifyInstance): Promise<void
         return reply.status(404).send({ error: 'Document file is missing on disk', statusCode: 404 });
       }
 
+      const inline = req.query.inline === '1' && doc.mime_type === 'application/pdf';
       return reply
         .header('Content-Type', doc.mime_type)
         .header('Content-Length', stat.size)
-        .header('Content-Disposition', attachmentHeader(doc.original_name))
+        .header('Content-Disposition', dispositionHeader(doc.original_name, inline ? 'inline' : 'attachment'))
         .header('X-Content-Type-Options', 'nosniff')
         .send(fs.createReadStream(fullPath));
     },

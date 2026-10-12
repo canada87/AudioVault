@@ -7,7 +7,9 @@ import {
   MAX_DOCUMENT_BYTES,
   deleteProjectDocument,
   documentDownloadUrl,
+  documentViewUrl,
   fetchProjectDocuments,
+  isPdf,
   uploadProjectDocument,
 } from '../api/documents';
 import type { ProjectDocument } from '../api/documents';
@@ -198,9 +200,9 @@ export default function ProjectDocumentsBox({ projectId }: { projectId: number }
             <li key={doc.id} className="flex items-center gap-2 py-2">
               <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
               <a
-                href={documentDownloadUrl(projectId, doc.id)}
-                download={doc.name}
-                title="Click to download"
+                href={isPdf(doc) ? documentViewUrl(projectId, doc.id) : documentDownloadUrl(projectId, doc.id)}
+                {...(isPdf(doc) ? { target: '_blank', rel: 'noopener noreferrer' } : { download: doc.name })}
+                title={isPdf(doc) ? 'Click to open in a new tab' : 'Click to download'}
                 className="flex-1 min-w-0 group"
               >
                 <div className="text-sm text-foreground truncate group-hover:underline">{doc.name}</div>

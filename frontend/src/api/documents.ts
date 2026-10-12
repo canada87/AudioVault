@@ -49,3 +49,12 @@ export async function deleteProjectDocument(projectId: number, docId: number): P
 export function documentDownloadUrl(projectId: number, docId: number): string {
   return `${BASE_URL}/projects/${projectId}/documents/${docId}/download`;
 }
+
+export function isPdf(doc: ProjectDocument): boolean {
+  return doc.mime_type === 'application/pdf';
+}
+
+// For PDFs the server honours ?inline=1 and lets the browser display the file instead of saving it.
+export function documentViewUrl(projectId: number, docId: number): string {
+  return `${documentDownloadUrl(projectId, docId)}?inline=1`;
+}
