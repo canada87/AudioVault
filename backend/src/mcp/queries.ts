@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import db, { sqlite } from '../db';
-import { contacts, projectDocuments, projects } from '../db/schema';
+import { contacts, projectDocuments, projectFolders, projects } from '../db/schema';
 import { getProjectDetail } from '../services/projects';
 import { evaluateTagQuery } from '../services/tagQuery';
 import type { TagQueryNode } from '../services/tagQuery';
@@ -268,6 +268,7 @@ export async function listProjects(query?: string) {
   );
   const contactCounts = projectCounts('project_contacts');
   const documentCounts = projectCounts('project_documents');
+  const folderNames = new Map((await db.select().from(projectFolders)).map((f) => [f.id, f.name]));
 
   const out = [];
   for (const p of rows.sort((a, b) => b.updated_at - a.updated_at)) {
@@ -275,6 +276,7 @@ export async function listProjects(query?: string) {
     out.push({
       id: p.id,
       title: p.title,
+      folder: p.folder_id != null ? (folderNames.get(p.folder_id) ?? null) : null,
       tag_filter: d.queryText,
       recordings: { included: d.included.length, pending: d.pending.length, excluded: d.excluded.length },
       has_report: p.report != null && p.report !== '',

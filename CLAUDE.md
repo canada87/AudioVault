@@ -29,6 +29,7 @@ backend/src/
     audio.ts            — /api/audio/:id (streaming with Range support)
     stats.ts            — /api/stats, /api/limits/today, /api/settings GET+PATCH, /api/logs
     logs.ts             — /api/logs (SSE log stream)
+    projectFolders.ts   — /api/project-folders/* (single-level folders for organising the projects list)
     mcp.ts              — POST /mcp (Streamable HTTP MCP endpoint, bearer-token auth via MCP_TOKEN)
   services/
     llm.ts              — generateSummary(): branches on LLM_PROVIDER → Gemini or OpenAI
@@ -128,6 +129,7 @@ All LLM-related vars can be changed at runtime via Settings UI — no restart ne
 
 - `records` — core table: `id`, `original_name`, `display_name`, `recorded_at` (unix), `file_path`, `audio_deleted`, `transcription`, `summary`, `notes`, `status`, timestamps
 - `tags` / `record_tags` — many-to-many tagging
+- `project_folders` — single-level folders; `projects.folder_id` points to one (NULL = no folder, `ON DELETE SET NULL` so deleting a folder keeps its projects)
 - `processingLog` — audit trail for transcription and summarization (scheduler vs manual, success vs error)
 - `dailyLimits` — one row per UTC date, `llm_count` incremented per call
 - `settings` — key/value pairs persisted from Settings UI

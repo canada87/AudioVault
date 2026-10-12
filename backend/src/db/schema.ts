@@ -72,9 +72,19 @@ export const settings = sqliteTable('settings', {
   value: text('value').notNull(),
 });
 
+// Single-level folders used only to organise the projects list. Deleting a folder keeps its projects.
+export const projectFolders = sqliteTable('project_folders', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull().unique(),
+  created_at: integer('created_at')
+    .default(sql`(unixepoch())`)
+    .notNull(),
+});
+
 export const projects = sqliteTable('projects', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   title: text('title').notNull(),
+  folder_id: integer('folder_id').references(() => projectFolders.id, { onDelete: 'set null' }),
   // Legacy flat selection (tag_mode + project_tags); superseded by tag_query and only read once,
   // by the boot-time conversion in db/index.ts.
   tag_mode: text('tag_mode', { enum: ['or', 'and'] }).default('or').notNull(),

@@ -116,6 +116,12 @@ sqlite.exec(`
     PRIMARY KEY (project_id, contact_id)
   );
 
+  CREATE TABLE IF NOT EXISTS project_folders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch())
+  );
+
   CREATE TABLE IF NOT EXISTS project_documents (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -142,6 +148,12 @@ try {
 
 try {
   sqlite.exec(`ALTER TABLE projects ADD COLUMN tag_query TEXT`);
+} catch (_e) {
+  // Column already exists
+}
+
+try {
+  sqlite.exec(`ALTER TABLE projects ADD COLUMN folder_id INTEGER REFERENCES project_folders(id) ON DELETE SET NULL`);
 } catch (_e) {
   // Column already exists
 }

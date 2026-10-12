@@ -41,6 +41,7 @@ export interface ProjectRecord {
 export interface ProjectSummary {
   id: number;
   title: string;
+  folder_id: number | null;
   tag_query_text: string;
   included_count: number;
   pending_count: number;
@@ -57,6 +58,7 @@ export interface ProjectSummary {
 export interface ProjectDetail {
   id: number;
   title: string;
+  folder_id: number | null;
   tag_query: TagQueryGroup;
   tag_query_text: string;
   report: string | null;
@@ -107,6 +109,7 @@ export async function previewTagQuery(tagQuery: TagQueryGroup): Promise<TagQuery
 export async function createProject(body: {
   title: string;
   tag_query: TagQueryGroup;
+  folder_id?: number | null;
 }): Promise<ProjectDetail> {
   const res = await fetch(`${BASE_URL}/projects`, {
     method: 'POST',
@@ -123,6 +126,7 @@ export async function patchProject(
     tag_query?: TagQueryGroup;
     report?: string | null;
     notes?: string | null;
+    folder_id?: number | null;
   },
 ): Promise<ProjectDetail> {
   const res = await fetch(`${BASE_URL}/projects/${id}`, {

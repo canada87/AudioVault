@@ -15,6 +15,7 @@ import { registerAudioRoutes } from './routes/audio';
 import { registerStatsRoutes } from './routes/stats';
 import { registerLogRoutes } from './routes/logs';
 import { registerProjectRoutes } from './routes/projects';
+import { registerProjectFolderRoutes } from './routes/projectFolders';
 import { registerContactRoutes } from './routes/contacts';
 import { registerDocumentRoutes } from './routes/documents';
 import { registerMcpRoutes } from './routes/mcp';
@@ -124,6 +125,7 @@ async function main(): Promise<void> {
   await registerStatsRoutes(app);
   await registerLogRoutes(app);
   await registerProjectRoutes(app);
+  await registerProjectFolderRoutes(app);
   await registerContactRoutes(app);
   await registerDocumentRoutes(app);
   await registerMcpRoutes(app);

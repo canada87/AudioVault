@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { eq } from 'drizzle-orm';
 import db from '../db';
-import { projects } from '../db/schema';
+import { projectFolders, projects } from '../db/schema';
 import type { Record as DbRecord } from '../db/schema';
 import {
   getProjectDetail,
@@ -18,6 +18,7 @@ import { removeProjectDocumentsDir } from '../services/documents';
 interface CreateProjectBody {
   title: string;
   tag_query: unknown;
+  folder_id?: number | null;
 }
 
 interface UpdateProjectBody {
@@ -25,6 +26,7 @@ interface UpdateProjectBody {
   tag_query?: unknown;
   report?: string | null;
   notes?: string | null;
+  folder_id?: number | null;
 }
 
 interface RegenerateBody {
@@ -77,6 +79,7 @@ export async function registerProjectRoutes(app: FastifyInstance): Promise<void>
         return {
           id: project.id,
           title: project.title,
+          folder_id: project.folder_id,
           tag_query_text: detail.queryText,
           included_count: detail.included.length,
           pending_count: detail.pending.length,
@@ -109,17 +112,27 @@ export async function registerProjectRoutes(app: FastifyInstance): Promise<void>
 
   // POST /api/projects
   app.post('/api/projects', async (req: FastifyRequest<{ Body: CreateProjectBody }>, reply: FastifyReply) => {
-    const { title, tag_query } = req.body;
+    const { title, tag_query, folder_id } = req.body;
 
     if (!title || title.trim().length === 0) {
       return reply.status(400).send({ error: 'Title is required', statusCode: 400 });
+    }
+
+    if (folder_id !== undefined && folder_id !== null) {
+      const [folder] = await db
+        .select({ id: projectFolders.id })
+        .from(projectFolders)
+        .where(eq(projectFolders.id, Number(folder_id)));
+      if (!folder) {
+        return reply.status(404).send({ error: 'Folder not found', statusCode: 404 });
+      }
     }
 
     try {
       const query = await parseAndValidateTagQuery(tag_query);
       const [project] = await db
         .insert(projects)
-        .values({ title: title.trim(), tag_query: JSON.stringify(query) })
+        .values({ title: title.trim(), tag_query: JSON.stringify(query), folder_id: folder_id ?? null })
         .returning();
 
       return reply.status(201).send(toDetailDto(await getProjectDetail(project.id)));
@@ -156,7 +169,7 @@ export async function registerProjectRoutes(app: FastifyInstance): Promise<void>
         return reply.status(404).send({ error: 'Project not found', statusCode: 404 });
       }
 
-      const { title, tag_query, report, notes } = req.body;
+      const { title, tag_query, report, notes, folder_id } = req.body;
 
       if (title !== undefined && title.trim().length === 0) {
         return reply.status(400).send({ error: 'Title cannot be empty', statusCode: 400 });
@@ -166,6 +179,16 @@ export async function registerProjectRoutes(app: FastifyInstance): Promise<void>
       }
       if (notes !== undefined && notes !== null && typeof notes !== 'string') {
         return reply.status(400).send({ error: 'notes must be a string or null', statusCode: 400 });
+      }
+
+      if (folder_id !== undefined && folder_id !== null) {
+        if (typeof folder_id !== 'number' || !Number.isInteger(folder_id)) {
+          return reply.status(400).send({ error: 'folder_id must be a number or null', statusCode: 400 });
+        }
+        const [folder] = await db.select({ id: projectFolders.id }).from(projectFolders).where(eq(projectFolders.id, folder_id));
+        if (!folder) {
+          return reply.status(404).send({ error: 'Folder not found', statusCode: 404 });
+        }
       }
 
       let tagQueryJson: string | undefined;
@@ -182,16 +205,22 @@ export async function registerProjectRoutes(app: FastifyInstance): Promise<void>
         tag_query?: string;
         report?: string | null;
         notes?: string | null;
-        updated_at: number;
-      } = {
-        updated_at: Math.floor(Date.now() / 1000),
-      };
+        folder_id?: number | null;
+        updated_at?: number;
+      } = {};
+      // Filing a project into a folder is not a content change: keep it out of the "recently updated" order.
+      if (title !== undefined || tag_query !== undefined || report !== undefined || notes !== undefined) {
+        updates.updated_at = Math.floor(Date.now() / 1000);
+      }
       if (title !== undefined) updates.title = title.trim();
       if (tagQueryJson !== undefined) updates.tag_query = tagQueryJson;
       if (report !== undefined) updates.report = report;
       if (notes !== undefined) updates.notes = notes;
+      if (folder_id !== undefined) updates.folder_id = folder_id;
 
-      await db.update(projects).set(updates).where(eq(projects.id, id));
+      if (Object.keys(updates).length > 0) {
+        await db.update(projects).set(updates).where(eq(projects.id, id));
+      }
 
       return reply.send(toDetailDto(await getProjectDetail(id)));
     },

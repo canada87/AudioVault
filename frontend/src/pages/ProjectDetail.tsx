@@ -3,10 +3,11 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
 import { format } from 'date-fns';
-import { ArrowLeft, Loader2, RefreshCw, RotateCcw, Trash2, AlertTriangle, Pencil, Check, X } from 'lucide-react';
+import { ArrowLeft, Loader2, RefreshCw, RotateCcw, Trash2, AlertTriangle, Pencil, Check, X, Folder } from 'lucide-react';
 import { fetchProject, generateProject, regenerateProject, deleteProject, patchProject, tagQueryHasTags } from '../api/projects';
 import type { ProjectRecord, TagQueryGroup } from '../api/projects';
 import { fetchTags } from '../api/tags';
+import { fetchProjectFolders } from '../api/projectFolders';
 import ConfirmDialog from '../components/ConfirmDialog';
 import TagQueryBuilder from '../components/TagQueryBuilder';
 import ProjectContactsBox from '../components/ProjectContactsBox';
@@ -42,9 +43,15 @@ export default function ProjectDetail(): React.ReactElement {
     queryFn: fetchTags,
   });
 
+  const { data: folders = [] } = useQuery({
+    queryKey: ['project-folders'],
+    queryFn: fetchProjectFolders,
+  });
+
   const invalidate = (): void => {
     void queryClient.invalidateQueries({ queryKey: ['project', projectId] });
     void queryClient.invalidateQueries({ queryKey: ['projects'] });
+    void queryClient.invalidateQueries({ queryKey: ['project-folders'] });
   };
 
   const generateMutation = useMutation({
@@ -73,6 +80,12 @@ export default function ProjectDetail(): React.ReactElement {
 
   const notesMutation = useMutation({
     mutationFn: (notes: string) => patchProject(projectId, { notes }),
+    onSuccess: () => { setActionError(null); invalidate(); },
+    onError: (e: Error) => setActionError(e.message),
+  });
+
+  const folderMutation = useMutation({
+    mutationFn: (folder_id: number | null) => patchProject(projectId, { folder_id }),
     onSuccess: () => { setActionError(null); invalidate(); },
     onError: (e: Error) => setActionError(e.message),
   });
@@ -151,6 +164,26 @@ export default function ProjectDetail(): React.ReactElement {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">{project.title}</h1>
+          {(folders.length > 0 || project.folder_id !== null) && (
+            <div className="flex items-center gap-1.5 mt-2 text-xs text-muted-foreground">
+              <Folder className="w-3.5 h-3.5" />
+              <label htmlFor="project-folder">Folder:</label>
+              <select
+                id="project-folder"
+                value={project.folder_id ?? ''}
+                disabled={folderMutation.isPending}
+                onChange={(e) => folderMutation.mutate(e.target.value === '' ? null : parseInt(e.target.value, 10))}
+                className="px-2 py-1 text-xs rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+              >
+                <option value="">No folder</option>
+                {folders.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           {queryDraft === null && (
             <div className="flex flex-wrap items-center gap-2 mt-2">
               <span className="font-mono text-xs text-muted-foreground break-words">
